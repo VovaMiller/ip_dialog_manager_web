@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Upload, Card, Typography, Space, message, Table, Tag } from 'antd';
-import { InboxOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Button, Upload, Card, Typography, Space, message, Table, Tag, Divider } from 'antd';
+import { DeploymentUnitOutlined, InboxOutlined, FileTextOutlined } from '@ant-design/icons';
+import { ReactFlow, Controls, Background, useNodesState, useEdgesState } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 
 const { Dragger } = Upload;
 const { Title, Text } = Typography;
@@ -10,6 +12,36 @@ function App() {
   const [fileStats, setFileStats] = useState(null);
   // Элемент управления состоянием загрузки (анимация)
   const [loading, setLoading] = useState(false);
+  
+  // Хуки React Flow для управления узлами и связями
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [loading_graph, setLoadingGraph] = useState(false);
+
+  // Функция запроса графа у FastAPI
+  const fetchGraph = async () => {
+    setLoadingGraph(true);
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/dialogs/test-graph');
+      
+      if (!response.ok) {
+        throw new Error('Не удалось загрузить структуру графа');
+      }
+
+      const result = await response.json();
+      
+      // Записываем массивы в специальные состояния React Flow
+      setNodes(result.data.nodes);
+      setEdges(result.data.edges);
+      
+      message.success('Структура диалога успешно визуализирована!');
+    } catch (error) {
+      console.error(error);
+      message.error(error.message);
+    } finally {
+      setLoadingGraph(false);
+    }
+  };
 
   // Кастомная функция отправки файла через fetch
   const handleUpload = async ({ file, onSuccess, onError }) => {
@@ -103,6 +135,49 @@ function App() {
             />
           </Card>
         )}
+
+        <Divider />
+        
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
+          
+          {/* Верхняя панель управления с кнопкой Ant Design */}
+          <Card style={{ marginBottom: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Title level={3} style={{ margin: 0 }}>
+                Редактор игровых диалогов
+              </Title>
+              <Button 
+                type="primary" 
+                icon={<DeploymentUnitOutlined />} 
+                size="large" 
+                loading={loading_graph}
+                onClick={fetchGraph}
+              >
+                Визуализировать тестовый граф
+              </Button>
+            </div>
+          </Card>
+
+          {/* Контейнер для холста графа */}
+          {nodes && nodes.length > 0 && (
+            <div style={{ flexGrow: 1, border: '1px solid #d9d9d9', borderRadius: '8px', backgroundColor: '#fff', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange} // Разрешает перетаскивание блоков мышкой
+                onEdgesChange={onEdgesChange} // Разрешает изменять связи
+                fitView // Автоматически центрирует камеру по графу при загрузке
+              >
+                {/* Сетка на заднем фоне холста */}
+                <Background color="#ccc" gap={16} size={1} />
+                {/* Кнопки зума (+ / -) в левом углу */}
+                <Controls />
+              </ReactFlow>
+            </div>
+          )}
+
+        </div>
+
       </Space>
     </div>
   );
