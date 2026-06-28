@@ -42,7 +42,7 @@ def read_root():
     return {"message": "Root: WIP"}
 
 
-# http://127.0.0.1:8000/dialogs
+# http://127.0.0.1:8000/api/dialogs
 app.include_router(dialogs.router)
 
 # TODO: test
