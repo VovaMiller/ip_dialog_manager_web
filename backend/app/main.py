@@ -15,8 +15,10 @@ app = FastAPI()
 
 
 origins = [
-    "http://localhost:5173",  # frontend (Vite/React)
-    "http://127.0.0.1:5173",  # frontend (Vite/React)
+    # frontend (Vite/React)
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    # "http://192.168.1.72:5173",
 ]
 app.add_middleware(
     CORSMiddleware,
