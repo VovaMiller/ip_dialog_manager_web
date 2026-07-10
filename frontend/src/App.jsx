@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, Upload, Card, Typography, Select, Space, message, Table, Tag, Divider } from 'antd';
 import { DeploymentUnitOutlined, InboxOutlined, FileTextOutlined } from '@ant-design/icons';
 import { ReactFlow, Controls, Background, useNodesState, useEdgesState } from '@xyflow/react';
+import dagre from '@dagrejs/dagre';
 
 import '@xyflow/react/dist/style.css';
 
@@ -16,8 +17,29 @@ function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
+
+  const getLayoutedNodes = (nodes, edges) => {
+    const g = new dagre.graphlib.Graph();
+    g.setGraph({ rankdir: 'TB' });
+    g.setDefaultEdgeLabel(() => ({}));
+
+    nodes.forEach((node) => g.setNode(node.id, { width: 150, height: 50 }));  // TODO: upd numbers
+    edges.forEach((edge) => g.setEdge(edge.source, edge.target));
+
+    dagre.layout(g);
+
+    return nodes.map(node => {
+      const gNode = g.node(node.id);
+      return {
+        ...node,
+        position: { x: gNode.x, y: gNode.y }
+      };
+    });
+  };
+
   const showGraph = ({nodes, edges}) => {
-      setNodes(nodes);
+      // TODO: если координаты уже зашиты, то просчитывать их не нужно
+      setNodes(getLayoutedNodes(nodes, edges));
       setEdges(edges);
   };
 
