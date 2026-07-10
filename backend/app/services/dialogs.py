@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass, field
-from typing import Self
+from typing import Any, Self
 
 from lxml import etree
 
@@ -137,6 +137,36 @@ class Dialog:
             return dialog
         else:
             raise cls.ElementError
+    
+    def get_react_flow_nodes(self) -> list[dict[str, Any]]:
+        """Получить список данных о вершинах фраз для React Flow.
+        """
+        nodes = []
+        for phr in self.phrases.values():
+            nodes.append({
+                "id": phr._id,
+                "position": {
+                    "x": phr.meta_pos[0] if phr.meta_pos is not None else 0,
+                    "y": phr.meta_pos[1] if phr.meta_pos is not None else 0,
+                },
+                "data": {
+                    "label": phr.text or "",
+                },
+            })
+        return nodes
+    
+    def get_react_flow_edges(self) -> list[dict[str, Any]]:
+        """Получить список данных о вершинах фраз для React Flow.
+        """
+        edges = []
+        for phr in self.phrases.values():
+            for phr_next_id in phr._next:
+                edges.append({
+                    "id": f"e_{phr._id}_{phr_next_id}",
+                    "source": phr._id,
+                    "target": phr_next_id,
+                })
+        return edges
 
 class GameDialogs:
     """Класс с набором диалогов, считывающимся с xml-файла.

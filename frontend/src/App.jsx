@@ -1,46 +1,24 @@
 import React, { useState } from 'react';
-import { Button, Upload, Card, Typography, Space, message, Table, Tag, Divider } from 'antd';
+import { Button, Upload, Card, Typography, Select, Space, message, Table, Tag, Divider } from 'antd';
 import { DeploymentUnitOutlined, InboxOutlined, FileTextOutlined } from '@ant-design/icons';
 import { ReactFlow, Controls, Background, useNodesState, useEdgesState } from '@xyflow/react';
+
 import '@xyflow/react/dist/style.css';
 
 const { Dragger } = Upload;
 const { Title, Text } = Typography;
 
 function App() {
-  // Храним данные об успешном анализе файла
-  const [fileStats, setFileStats] = useState(null);
-  // Элемент управления состоянием загрузки (анимация)
   const [loading, setLoading] = useState(false);
+  const [gameDialogs, setGameDialogs] = useState(null);
   
   // Хуки React Flow для управления узлами и связями
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [loading_graph, setLoadingGraph] = useState(false);
 
-  // Функция запроса графа у FastAPI
-  const fetchGraph = async () => {
-    setLoadingGraph(true);
-    try {
-      const response = await fetch('http://127.0.0.1:8000/api/dialogs/test-graph');
-      
-      if (!response.ok) {
-        throw new Error('Не удалось загрузить структуру графа');
-      }
-
-      const result = await response.json();
-      
-      // Записываем массивы в специальные состояния React Flow
-      setNodes(result.data.nodes);
-      setEdges(result.data.edges);
-      
-      message.success('Структура диалога успешно визуализирована!');
-    } catch (error) {
-      console.error(error);
-      message.error(error.message);
-    } finally {
-      setLoadingGraph(false);
-    }
+  const showGraph = ({nodes, edges}) => {
+      setNodes(nodes);
+      setEdges(edges);
   };
 
   // Кастомная функция отправки файла через fetch
@@ -54,8 +32,8 @@ function App() {
 
     try {
       const response = await fetch('http://127.0.0.1:8000/api/dialogs/upload', {
-        method: 'POST', // Файлы всегда отправляются через POST
-        body: formData,  // Передаем FormData в тело запроса
+        method: 'POST',
+        body: formData,
       });
 
       const result = await response.json();
@@ -66,7 +44,7 @@ function App() {
       }
 
       // Сохраняем полученную от бэкенда статистику в состояние
-      setFileStats(result);
+      setGameDialogs(result.data);
       onSuccess(result);
       message.success(`Файл ${file.name} успешно обработан сервером.`);
     } catch (error) {
@@ -93,15 +71,28 @@ function App() {
   ];
 
   // Превращаем JSON-ответ от FastAPI в массив данных для таблицы
-  const tableData = fileStats ? [
-    { key: '1', property: 'Имя файла конфигурации', value: <Text strong>{fileStats?.data?.filename}</Text> },
-    { key: '2', property: 'Статус чтения', value: <Tag color="green">{fileStats.status.toUpperCase()}</Tag> },
-    { key: '3', property: 'Посчитано строк кода', value: <Tag color="blue">{fileStats?.data?.lines_count}</Tag> },
+  const tableData = gameDialogs ? [
+    { key: '1', property: 'Имя файла конфигурации', value: <Text strong>{gameDialogs.filename}</Text> },
+    { key: '2', property: 'Кол-во диалогов', value: <Tag color="blue">{gameDialogs.dialogs.length}</Tag> },
   ] : [];
+
+  const selectDialogList = gameDialogs?.dialogs
+    ? gameDialogs.dialogs.map(dlg => ({ value: dlg.id, label: dlg.id }))
+    : [];
+
+  const onDialogSelect = async (value) => {
+    const dlg = gameDialogs?.dialogs?.find(d => d.id === value);
+    if (dlg) {
+      showGraph(dlg);
+      console.log("Selected dialog:", value);
+    } else {
+      console.error("Invalid dialog id:", value);
+    }
+  }
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
-      <Space direction="vertical" size="large" style={{ width: '100%', mapxWidth: 600 }}>
+      <Space orientation="vertical" size="large" style={{ width: '100%', mapxWidth: 600 }}>
         
         <Card style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.08)', borderRadius: '8px' }}>
           <Title level={3} style={{ textAlign: 'center', marginBottom: 24 }}>
@@ -121,9 +112,9 @@ function App() {
         </Card>
 
         {/* Если данные от сервера получены, красиво отображаем их в таблице */}
-        {fileStats && (
+        {gameDialogs && (
           <Card 
-            title={<Space><FileTextOutlined />Результат первичного анализа бэкенда</Space>}
+            title={<Space><FileTextOutlined />Информация о файле</Space>}
             style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)', borderRadius: '8px' }}
           >
             <Table 
@@ -136,27 +127,18 @@ function App() {
           </Card>
         )}
 
-        <Divider />
+        {gameDialogs && (
+          <Select
+            style={{ width: 360 }}
+            size="large"
+            placeholder="Выберите диалог"
+            onChange={onDialogSelect}
+            options={selectDialogList}
+          />
+        )}
+
         
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
-          
-          {/* Верхняя панель управления с кнопкой Ant Design */}
-          <Card style={{ marginBottom: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Title level={3} style={{ margin: 0 }}>
-                Редактор игровых диалогов
-              </Title>
-              <Button 
-                type="primary" 
-                icon={<DeploymentUnitOutlined />} 
-                size="large" 
-                loading={loading_graph}
-                onClick={fetchGraph}
-              >
-                Визуализировать тестовый граф
-              </Button>
-            </div>
-          </Card>
 
           {/* Контейнер для холста графа */}
           {nodes && nodes.length > 0 && (
@@ -177,6 +159,10 @@ function App() {
           )}
 
         </div>
+        
+
+        <Divider />
+
 
       </Space>
     </div>

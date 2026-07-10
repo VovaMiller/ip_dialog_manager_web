@@ -1,4 +1,7 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from pydantic import BaseModel
+
+from app.services.dialogs import GameDialogs
 
 router = APIRouter(prefix="/api/dialogs", tags=["Диалоги"])
 
@@ -9,7 +12,35 @@ def get_all_dialogs():
         "message": "Все диалоги (WIP)"
     }
 
-@router.post("/upload", summary="Загрузка конфига диалога")
+
+class ReactFlowNode(BaseModel):
+    id: str
+    position: dict[str, int]
+    data: dict[str, str]
+
+class ReactFlowEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    
+class DialogModel(BaseModel):
+    id: str
+    nodes: list[ReactFlowNode]
+    edges: list[ReactFlowEdge]
+
+class UploadResponseData(BaseModel):
+    filename: str
+    dialogs: list[DialogModel]
+
+class UploadResponse(BaseModel):
+    status: str
+    data: UploadResponseData
+    
+@router.post(
+    "/upload",
+    summary="Загрузка конфига диалога",
+    response_model=UploadResponse,
+)
 async def upload_dialog_xml(file: UploadFile = File(...)):
     """Принимает файл-конфиг диалога.
 
@@ -19,8 +50,7 @@ async def upload_dialog_xml(file: UploadFile = File(...)):
     3. Выполняет базовый подсчет строк.
 
     ### Возможные ошибки:
-    * **400 Bad Request** — если передан файл неверного формата.
-    * **422 Unprocessable Entity** — если файл вообще забыли прикрепить к запросу.
+    * **400 Bad Request** — если файл не передан или передан в неверном формате.
     """
     if not file.filename:
         raise HTTPException(
@@ -38,62 +68,35 @@ async def upload_dialog_xml(file: UploadFile = File(...)):
                 "data": {"file": "Wrong file format"}
             }
         )
+
+    # Чтение файла
     content = await file.read()
-    text = content.decode("utf-8")
-    lines_count = len(text.splitlines())
+    raw_xml = content.decode("utf-8")
+
+    # Парсинг
+    game_dialogs = GameDialogs(raw_xml)
+    response_dialogs = []
+    for dlg in game_dialogs.dialogs.values():
+        response_dialogs.append({
+            "id": dlg._id,
+            "nodes": dlg.get_react_flow_nodes(),
+            "edges": dlg.get_react_flow_edges(),
+        })
+
     return {
         "status": "success",
         "data": {
             "filename": file.filename,
-            "lines_count": lines_count,
+            "dialogs": response_dialogs,
         }
     }
 
-@router.get("/test-graph")
-def get_test_graph():
-    nodes = [
-        {
-            "id": "10", 
-            "position": {"x": 250, "y": 0}, 
-            "data": {"label": "Привет, Сталкер!"}
-        },
-        {
-            "id": "20", 
-            "position": {"x": 100, "y": 150}, 
-            "data": {"label": "Есть для меня работа?"}
-        },
-        {
-            "id": "30", 
-            "position": {"x": 400, "y": 150}, 
-            "data": {"label": "До встречи!"}
-        },
-        {
-            "id": "21", 
-            "position": {"x": 100, "y": 300}, 
-            "data": {"label": "Работы пока нет :("}
-        }
-    ]
-    
-    edges = [
-        {"id": "e_10_20", "source": "10", "target": "20", "animated": True},
-        {"id": "e_10_30", "source": "10", "target": "30", "animated": True},
-        {"id": "e_20_21", "source": "20", "target": "21"}
-    ]
-
-    # {
-    #     "id": "e_1_2",             # Уникальное имя связи (любая ваша строка)
-    #     "source": "1",             # ID ноды, ОТКУДА выходит стрелка (строка!)
-    #     "target": "2",             # ID ноды, КУДА входит стрелка (строка!)
-    #     "animated": True,          # Опционально: включает бегущие точки по линии
-    #     "label": "Sample text",    # Опционально: текст прямо поверх стрелочки (удобно для проверок в диалогах)
-    #     "type": "smoothstep"       # Опционально: стиль линии (default, straight, step, smoothstep)
-    # }
-
-    
-    return {
-        "status": "success",
-        "data": {
-            "nodes": nodes,
-            "edges": edges
-        }
-    }
+# TODO: remove later
+# {
+#     "id": "e_1_2",             # Уникальное имя связи (любая ваша строка)
+#     "source": "1",             # ID ноды, ОТКУДА выходит стрелка (строка!)
+#     "target": "2",             # ID ноды, КУДА входит стрелка (строка!)
+#     "animated": True,          # Опционально: включает бегущие точки по линии
+#     "label": "Sample text",    # Опционально: текст прямо поверх стрелочки (удобно для проверок в диалогах)
+#     "type": "smoothstep"       # Опционально: стиль линии (default, straight, step, smoothstep)
+# }

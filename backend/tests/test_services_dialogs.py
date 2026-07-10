@@ -793,3 +793,6 @@ def test_game_dialogs_constructor_complete_dialog_check():
     assert phr.action == []
 
 # ----------------------------------------------------------------
+
+# TODO: test Dialog.get_react_flow_nodes
+# TODO: test Dialog.get_react_flow_edges
