@@ -19,7 +19,7 @@ function DialogCanvas({ gameDialogs }) {
     g.setGraph({ rankdir: 'TB' });
     g.setDefaultEdgeLabel(() => ({}));
 
-    nodes.forEach((node) => g.setNode(node.id, { width: 120, height: 60 }));
+    nodes.forEach((node) => g.setNode(node.id, { width: 80, height: 40 }));
     edges.forEach((edge) => g.setEdge(edge.source, edge.target));
 
     dagre.layout(g);
