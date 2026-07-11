@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { Button, Upload, Card, Typography, Select, Space, message, Table, Tag, Divider } from 'antd';
-import { DeploymentUnitOutlined, InboxOutlined, FileTextOutlined } from '@ant-design/icons';
-import { ReactFlow, Controls, Background, useNodesState, useEdgesState } from '@xyflow/react';
-import dagre from '@dagrejs/dagre';
+import { Upload, Card, Typography, Space, message, Table, Tag, Divider } from 'antd';
+import { InboxOutlined, FileTextOutlined } from '@ant-design/icons';
+import { ReactFlowProvider } from '@xyflow/react';
 
-import '@xyflow/react/dist/style.css';
+import DialogCanvas from '@/components/DialogCanvas';
 
 const { Dragger } = Upload;
 const { Title, Text } = Typography;
@@ -12,36 +11,6 @@ const { Title, Text } = Typography;
 function App() {
   const [loading, setLoading] = useState(false);
   const [gameDialogs, setGameDialogs] = useState(null);
-  
-  // Хуки React Flow для управления узлами и связями
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-
-
-  const getLayoutedNodes = (nodes, edges) => {
-    const g = new dagre.graphlib.Graph();
-    g.setGraph({ rankdir: 'TB' });
-    g.setDefaultEdgeLabel(() => ({}));
-
-    nodes.forEach((node) => g.setNode(node.id, { width: 150, height: 50 }));  // TODO: upd numbers
-    edges.forEach((edge) => g.setEdge(edge.source, edge.target));
-
-    dagre.layout(g);
-
-    return nodes.map(node => {
-      const gNode = g.node(node.id);
-      return {
-        ...node,
-        position: { x: gNode.x, y: gNode.y }
-      };
-    });
-  };
-
-  const showGraph = ({nodes, edges}) => {
-      // TODO: если координаты уже зашиты, то просчитывать их не нужно
-      setNodes(getLayoutedNodes(nodes, edges));
-      setEdges(edges);
-  };
 
   // Кастомная функция отправки файла через fetch
   const handleUpload = async ({ file, onSuccess, onError }) => {
@@ -98,20 +67,6 @@ function App() {
     { key: '2', property: 'Кол-во диалогов', value: <Tag color="blue">{gameDialogs.dialogs.length}</Tag> },
   ] : [];
 
-  const selectDialogList = gameDialogs?.dialogs
-    ? gameDialogs.dialogs.map(dlg => ({ value: dlg.id, label: dlg.id }))
-    : [];
-
-  const onDialogSelect = async (value) => {
-    const dlg = gameDialogs?.dialogs?.find(d => d.id === value);
-    if (dlg) {
-      showGraph(dlg);
-      console.log("Selected dialog:", value);
-    } else {
-      console.error("Invalid dialog id:", value);
-    }
-  }
-
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
       <Space orientation="vertical" size="large" style={{ width: '100%', mapxWidth: 600 }}>
@@ -150,40 +105,13 @@ function App() {
         )}
 
         {gameDialogs && (
-          <Select
-            style={{ width: 360 }}
-            size="large"
-            placeholder="Выберите диалог"
-            onChange={onDialogSelect}
-            options={selectDialogList}
-          />
+          <ReactFlowProvider>
+            <DialogCanvas gameDialogs={gameDialogs} />
+          </ReactFlowProvider>
         )}
 
-        
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
-
-          {/* Контейнер для холста графа */}
-          {nodes && nodes.length > 0 && (
-            <div style={{ flexGrow: 1, border: '1px solid #d9d9d9', borderRadius: '8px', backgroundColor: '#fff', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange} // Разрешает перетаскивание блоков мышкой
-                onEdgesChange={onEdgesChange} // Разрешает изменять связи
-                fitView // Автоматически центрирует камеру по графу при загрузке
-              >
-                {/* Сетка на заднем фоне холста */}
-                <Background color="#ccc" gap={16} size={1} />
-                {/* Кнопки зума (+ / -) в левом углу */}
-                <Controls />
-              </ReactFlow>
-            </div>
-          )}
-
-        </div>
-        
-
         <Divider />
+
 
 
       </Space>

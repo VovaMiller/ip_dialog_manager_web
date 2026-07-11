@@ -13,15 +13,29 @@ def get_all_dialogs():
     }
 
 
+class PhraseData(BaseModel):
+    phrase_id: str
+    phrase_text: str
+    phrase_next: list[str]
+    phrase_has_info: list[str]
+    phrase_dont_has_info: list[str]
+    phrase_precondition: list[str]
+    phrase_give_info: list[str]
+    phrase_action: list[str]
+
 class ReactFlowNode(BaseModel):
     id: str
     position: dict[str, int]
-    data: dict[str, str]
+    data: PhraseData
+    type: str
 
 class ReactFlowEdge(BaseModel):
     id: str
+    type: str
     source: str
     target: str
+    animated: bool
+    markerEnd: dict[str, str | int]
     
 class DialogModel(BaseModel):
     id: str
@@ -90,13 +104,3 @@ async def upload_dialog_xml(file: UploadFile = File(...)):
             "dialogs": response_dialogs,
         }
     }
-
-# TODO: remove later
-# {
-#     "id": "e_1_2",             # Уникальное имя связи (любая ваша строка)
-#     "source": "1",             # ID ноды, ОТКУДА выходит стрелка (строка!)
-#     "target": "2",             # ID ноды, КУДА входит стрелка (строка!)
-#     "animated": True,          # Опционально: включает бегущие точки по линии
-#     "label": "Sample text",    # Опционально: текст прямо поверх стрелочки (удобно для проверок в диалогах)
-#     "type": "smoothstep"       # Опционально: стиль линии (default, straight, step, smoothstep)
-# }

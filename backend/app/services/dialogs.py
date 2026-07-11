@@ -150,8 +150,16 @@ class Dialog:
                     "y": phr.meta_pos[1] if phr.meta_pos is not None else 0,
                 },
                 "data": {
-                    "label": phr.text or "",
+                    "phrase_id": phr._id,
+                    "phrase_text": phr.text or "",
+                    "phrase_next": phr._next,
+                    "phrase_has_info": phr.has_info,
+                    "phrase_dont_has_info": phr.dont_has_info,
+                    "phrase_precondition": phr.precondition,
+                    "phrase_give_info": phr.give_info,
+                    "phrase_action": phr.action,
                 },
+                "type": "phraseNode",
             })
         return nodes
     
@@ -163,8 +171,16 @@ class Dialog:
             for phr_next_id in phr._next:
                 edges.append({
                     "id": f"e_{phr._id}_{phr_next_id}",
+                    "type": "straight",
                     "source": phr._id,
                     "target": phr_next_id,
+                    "animated": False,
+                    "markerEnd": {
+                        "type": "arrow",
+                        # "color": "#1890ff",
+                        "width": 20,
+                        "height": 20,
+                    },
                 })
         return edges
 
