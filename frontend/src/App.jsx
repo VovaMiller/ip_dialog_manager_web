@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Upload, Card, Typography, Space, message, Table, Tag, Divider } from 'antd';
+import { Upload, Card, Typography, Space, message, Table, Tag, Divider, Select } from 'antd';
 import { InboxOutlined, FileTextOutlined } from '@ant-design/icons';
 import { ReactFlowProvider } from '@xyflow/react';
+import { produce } from 'immer';
 
 import DialogCanvas from '@/components/DialogCanvas';
 
@@ -11,6 +12,7 @@ const { Title, Text } = Typography;
 function App() {
   const [loading, setLoading] = useState(false);
   const [gameDialogs, setGameDialogs] = useState(null);
+  const [selectedDialogID, setSelectedDialogID] = useState(null);
 
   // Кастомная функция отправки файла через fetch
   const handleUpload = async ({ file, onSuccess, onError }) => {
@@ -67,6 +69,30 @@ function App() {
     { key: '2', property: 'Кол-во диалогов', value: <Tag color="blue">{gameDialogs.dialogs.length}</Tag> },
   ] : [];
 
+  const selectDialogList = gameDialogs?.dialogs
+    ? gameDialogs.dialogs.map(dlg => ({ value: dlg.id, label: dlg.id }))
+    : [];
+
+  const onDialogSelect = (value) => {
+    setSelectedDialogID(value);
+  };
+
+  const updateDialogPhrase = (dialogID, phrase) => {
+    if (!!gameDialogs && !!dialogID && !!phrase) {
+      setGameDialogs(curGameDialogs =>
+        produce(curGameDialogs, draft => {
+          const dlg = draft.dialogs?.find(d => d.id === dialogID);
+          if (dlg) {
+            const idx = dlg.nodes?.findIndex(n => n.id === phrase.id);
+            if (idx >= 0) {
+              dlg.nodes[idx] = phrase;
+            }
+          }
+        })
+      );
+    }
+  };
+
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
       <Space orientation="vertical" size="large" style={{ width: '100%', mapxWidth: 600 }}>
@@ -105,9 +131,21 @@ function App() {
         )}
 
         {gameDialogs && (
-          <ReactFlowProvider>
-            <DialogCanvas gameDialogs={gameDialogs} />
-          </ReactFlowProvider>
+          <>
+            <Select
+              style={{ width: 360 }}
+              size="large"
+              placeholder="Выберите диалог"
+              onChange={onDialogSelect}
+              options={selectDialogList}
+            />
+            <ReactFlowProvider>
+              <DialogCanvas
+                dialog={gameDialogs.dialogs?.find(dlg => dlg.id === selectedDialogID)}
+                updateDialogPhrase={updateDialogPhrase}
+              />
+            </ReactFlowProvider>
+          </>
         )}
 
         <Divider />

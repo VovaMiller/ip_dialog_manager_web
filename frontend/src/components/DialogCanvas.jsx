@@ -1,8 +1,10 @@
-import { Select } from 'antd';
+import { useEffect, useState } from 'react';
+import { Drawer } from 'antd';
 import { ReactFlow, Controls, Background, useNodesState, useEdgesState } from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
 
 import PhraseNode from '@/components/PhraseNode';
+import PhraseDrawerContent from '@/components/PhraseDrawerContent';
 
 import '@xyflow/react/dist/style.css';
 
@@ -10,10 +12,13 @@ const nodeTypes = {
   phraseNode: PhraseNode,
 };
 
-function DialogCanvas({ gameDialogs }) {
+function DialogCanvas({ dialog, updateDialogPhrase }) {
+  const [dialogID, setDialogID] = useState(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [selectedNodeID, setSelectedNodeID] = useState(null);
 
+  // Функция для автоматического просчёта позиций вершин для данного графа диалога.
   const getLayoutedNodes = (nodes, edges) => {
     const g = new dagre.graphlib.Graph();
     g.setGraph({ rankdir: 'TB' });
@@ -33,36 +38,43 @@ function DialogCanvas({ gameDialogs }) {
     });
   };
 
-  const showGraph = ({nodes, edges}) => {
+  // Обновление холста при смене данных о диалоге (в т.ч. при выборе нового).
+  useEffect(() => {
+    if (dialog) {
+      // При смене диалога сбрасываем выбранную фразу.
+      if (dialog.id !== dialogID) {
+        setDialogID(dialog.id);
+        setSelectedNodeID(null);
+      }
+
+      const {nodes, edges} = dialog;
       // TODO: если координаты уже зашиты, то просчитывать их не нужно
       setNodes(getLayoutedNodes(nodes, edges));
       setEdges(edges);
+    } else {
+      setDialogID(null);
+      setNodes([]);
+      setEdges([]);
+      setSelectedNodeID(null);
+    }
+  }, [dialog]);
+
+  const onNodeClick = (event, node) => {
+    setSelectedNodeID(node?.id);
   };
 
-  const selectDialogList = gameDialogs?.dialogs
-    ? gameDialogs.dialogs.map(dlg => ({ value: dlg.id, label: dlg.id }))
-    : [];
+  const onDrawerClose = () => {
+    setSelectedNodeID(null);
+  };
 
-  const onDialogSelect = (value) => {
-    const dlg = gameDialogs?.dialogs?.find(d => d.id === value);
-    if (dlg) {
-      showGraph(dlg);
-      console.log("Selected dialog:", value);
-    } else {
-      console.error("Invalid dialog id:", value);
+  const updatePhrase = (newPhraseNode) => {
+    if (!!dialog && !!newPhraseNode) {
+      updateDialogPhrase(dialog.id, newPhraseNode);
     }
-  }
+  };
 
   return (
     <>
-      <Select
-        style={{ width: 360 }}
-        size="large"
-        placeholder="Выберите диалог"
-        onChange={onDialogSelect}
-        options={selectDialogList}
-      />
-
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
         {/* Контейнер для холста графа */}
         {nodes && nodes.length > 0 && (
@@ -72,6 +84,7 @@ function DialogCanvas({ gameDialogs }) {
               edges={edges}
               onNodesChange={onNodesChange} // Разрешает перетаскивание блоков мышкой
               onEdgesChange={onEdgesChange} // Разрешает изменять связи
+              onNodeClick={onNodeClick}
               zoomOnScroll={false}
               preventScrolling={false}
               nodeTypes={nodeTypes}
@@ -84,8 +97,23 @@ function DialogCanvas({ gameDialogs }) {
             </ReactFlow>
           </div>
         )}
-
       </div>
+
+      <Drawer
+        title="Редактирование фразы"
+        placement="right"
+        mask={false}
+        closable={{ 'aria-label': 'Close Button' }}
+        onClose={onDrawerClose}
+        open={!!selectedNodeID}
+      >
+        {!!selectedNodeID && (
+          <PhraseDrawerContent
+            phraseNode={nodes.find(phr => phr.id === selectedNodeID)}
+            updatePhrase={updatePhrase}
+          />
+        )}
+      </Drawer>
 
     </>
   );
