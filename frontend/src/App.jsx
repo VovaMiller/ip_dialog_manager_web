@@ -93,6 +93,24 @@ function App() {
     }
   };
 
+  const updateDialogPhrasesPositions = (dialogID, newPositionsMap) => {
+    if (!!gameDialogs && !!dialogID && !!newPositionsMap) {
+      setGameDialogs(curGameDialogs =>
+        produce(curGameDialogs, draft => {
+          const dlg = draft.dialogs?.find(d => d.id === dialogID);
+          if (dlg) {
+            for (const [phrID, newPosition] of newPositionsMap) {
+              const phr = dlg.nodes?.find(n => n.id === phrID);
+              if (phr) {
+                phr.position = {...newPosition};
+              }
+            }
+          }
+        })
+      );
+    }
+  };
+
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
       <Space orientation="vertical" size="large" style={{ width: '100%', mapxWidth: 600 }}>
@@ -143,6 +161,7 @@ function App() {
               <DialogCanvas
                 dialog={gameDialogs.dialogs?.find(dlg => dlg.id === selectedDialogID)}
                 updateDialogPhrase={updateDialogPhrase}
+                updateDialogPhrasesPositions={updateDialogPhrasesPositions}
               />
             </ReactFlowProvider>
           </>

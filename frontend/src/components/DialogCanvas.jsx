@@ -12,24 +12,24 @@ const nodeTypes = {
   phraseNode: PhraseNode,
 };
 
-function DialogCanvas({ dialog, updateDialogPhrase }) {
+function DialogCanvas({ dialog, updateDialogPhrase, updateDialogPhrasesPositions }) {
   const [dialogID, setDialogID] = useState(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNodeID, setSelectedNodeID] = useState(null);
 
   // Функция для автоматического просчёта позиций вершин для данного графа диалога.
-  const getLayoutedNodes = (nodes, edges) => {
+  const getLayoutedNodes = (dNodes, dEdges) => {
     const g = new dagre.graphlib.Graph();
     g.setGraph({ rankdir: 'TB' });
     g.setDefaultEdgeLabel(() => ({}));
 
-    nodes.forEach((node) => g.setNode(node.id, { width: 80, height: 40 }));
-    edges.forEach((edge) => g.setEdge(edge.source, edge.target));
+    dNodes.forEach((node) => g.setNode(node.id, { width: 80, height: 40 }));
+    dEdges.forEach((edge) => g.setEdge(edge.source, edge.target));
 
     dagre.layout(g);
 
-    return nodes.map(node => {
+    return dNodes.map(node => {
       const gNode = g.node(node.id);
       return {
         ...node,
@@ -38,19 +38,42 @@ function DialogCanvas({ dialog, updateDialogPhrase }) {
     });
   };
 
+  // Сохранить позиции всех перечисленных вершин.
+  const savePositions = (dNodes) => {
+    if (dialog) {
+      const newPositionsMap = new Map();
+      dNodes.forEach(phr => newPositionsMap.set(phr.id, phr.position));
+      updateDialogPhrasesPositions(dialog.id, newPositionsMap);
+    }
+  };
+
   // Обновление холста при смене данных о диалоге (в т.ч. при выборе нового).
   useEffect(() => {
     if (dialog) {
+      const isNewDialog = (dialog.id !== dialogID);
+
       // При смене диалога сбрасываем выбранную фразу.
-      if (dialog.id !== dialogID) {
+      if (isNewDialog) {
         setDialogID(dialog.id);
         setSelectedNodeID(null);
       }
 
-      const {nodes, edges} = dialog;
-      // TODO: если координаты уже зашиты, то просчитывать их не нужно
-      setNodes(getLayoutedNodes(nodes, edges));
-      setEdges(edges);
+      const {nodes: dNodes, edges: dEdges} = dialog;
+      if (isNewDialog) {
+        const noPositionData = dNodes.every(n => (n.position.x == 0) && (n.position.y == 0));
+        if (noPositionData) {
+          const dNodesLayouted = getLayoutedNodes(dNodes, dEdges);
+          setNodes(dNodesLayouted);
+          setEdges(dEdges);
+          savePositions(dNodesLayouted);
+        } else {
+          setNodes(dNodes);
+          setEdges(dEdges);
+        }
+      } else {
+        setNodes(dNodes);
+        setEdges(dEdges);
+      }
     } else {
       setDialogID(null);
       setNodes([]);
@@ -61,6 +84,10 @@ function DialogCanvas({ dialog, updateDialogPhrase }) {
 
   const onNodeClick = (event, node) => {
     setSelectedNodeID(node?.id);
+  };
+
+  const onNodeDragStop = (event, draggedNode, draggedNodes) => {
+    savePositions(draggedNodes);
   };
 
   const onDrawerClose = () => {
@@ -85,6 +112,7 @@ function DialogCanvas({ dialog, updateDialogPhrase }) {
               onNodesChange={onNodesChange} // Разрешает перетаскивание блоков мышкой
               onEdgesChange={onEdgesChange} // Разрешает изменять связи
               onNodeClick={onNodeClick}
+              onNodeDragStop={onNodeDragStop}
               zoomOnScroll={false}
               preventScrolling={false}
               nodeTypes={nodeTypes}
