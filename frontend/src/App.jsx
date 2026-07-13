@@ -111,6 +111,34 @@ function App() {
     }
   };
 
+  const deletePhrases = (dialogID, nodesIDSet) => {
+    if (!!gameDialogs && !!dialogID && !!nodesIDSet) {
+      setGameDialogs(curGameDialogs =>
+        produce(curGameDialogs, draft => {
+          const dlg = draft.dialogs?.find(d => d.id === dialogID);
+          if (dlg) {
+            dlg.edges = dlg.edges?.filter(e => !nodesIDSet.has(e.target) && !nodesIDSet.has(e.source)) || [];
+            dlg.nodes = dlg.nodes?.filter(n => !nodesIDSet.has(n.id)) || [];
+          }
+        })
+      );
+    }
+  };
+
+  const deletePhrasesConnections = (dialogID, edgesIDSet) => {
+    if (!!gameDialogs && !!dialogID && !!edgesIDSet) {
+      setGameDialogs(curGameDialogs =>
+        produce(curGameDialogs, draft => {
+          const dlg = draft.dialogs?.find(d => d.id === dialogID);
+          if (dlg) {
+            dlg.edges = dlg.edges?.filter(e => !edgesIDSet.has(e.id)) || [];
+          }
+        })
+      );
+    }
+  };
+
+
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
       <Space orientation="vertical" size="large" style={{ width: '100%', mapxWidth: 600 }}>
@@ -162,6 +190,8 @@ function App() {
                 dialog={gameDialogs.dialogs?.find(dlg => dlg.id === selectedDialogID)}
                 updateDialogPhrase={updateDialogPhrase}
                 updateDialogPhrasesPositions={updateDialogPhrasesPositions}
+                deletePhrases={deletePhrases}
+                deletePhrasesConnections={deletePhrasesConnections}
               />
             </ReactFlowProvider>
           </>

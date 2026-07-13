@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Drawer } from 'antd';
+import { Button, Space, Drawer } from 'antd';
+import { DeleteOutlined } from '@ant-design/icons';
 import { ReactFlow, Controls, Background, useNodesState, useEdgesState } from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
 
@@ -12,7 +13,13 @@ const nodeTypes = {
   phraseNode: PhraseNode,
 };
 
-function DialogCanvas({ dialog, updateDialogPhrase, updateDialogPhrasesPositions }) {
+function DialogCanvas({
+  dialog,
+  updateDialogPhrase,
+  updateDialogPhrasesPositions,
+  deletePhrases,
+  deletePhrasesConnections,
+}) {
   const [dialogID, setDialogID] = useState(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -90,8 +97,34 @@ function DialogCanvas({ dialog, updateDialogPhrase, updateDialogPhrasesPositions
     savePositions(draggedNodes);
   };
 
+  // Колбэк удаления вершин/рёбер через интерфейс ReactFlow.
+  const onDelete = ({ nodes: delNodes, edges: delEdges }) => {
+    if (dialog) {
+      // Удаление связей
+      const edgesIDSet = new Set();
+      delEdges.forEach(e => edgesIDSet.add(e.id));
+      deletePhrasesConnections(dialog.id, edgesIDSet);
+
+      // Удаление фраз
+      const nodesIDSet = new Set();
+      delNodes.forEach(n => nodesIDSet.add(n.id));
+      deletePhrases(dialog.id, nodesIDSet);
+      if (!!selectedNodeID && nodesIDSet.has(selectedNodeID)) {
+        setSelectedNodeID(null);
+      }
+    }
+  };
+
   const onDrawerClose = () => {
     setSelectedNodeID(null);
+  };
+
+  const onDeleteButtonClick = () => {
+    if (!!dialogID && !!selectedNodeID) {
+      const nodesIDSet = new Set([selectedNodeID]);
+      deletePhrases(dialogID, nodesIDSet);
+      setSelectedNodeID(null);
+    }
   };
 
   const updatePhrase = (newPhraseNode) => {
@@ -103,8 +136,7 @@ function DialogCanvas({ dialog, updateDialogPhrase, updateDialogPhrasesPositions
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
-        {/* Контейнер для холста графа */}
-        {nodes && nodes.length > 0 && (
+        {dialogID && (
           <div style={{ flexGrow: 1, border: '1px solid #d9d9d9', borderRadius: '8px', backgroundColor: '#fff', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
             <ReactFlow
               nodes={nodes}
@@ -113,9 +145,11 @@ function DialogCanvas({ dialog, updateDialogPhrase, updateDialogPhrasesPositions
               onEdgesChange={onEdgesChange} // Разрешает изменять связи
               onNodeClick={onNodeClick}
               onNodeDragStop={onNodeDragStop}
+              onDelete={onDelete}
               zoomOnScroll={false}
               preventScrolling={false}
               nodeTypes={nodeTypes}
+              deleteKeyCode={['Delete', 'Backspace']}
               fitView // Автоматически центрирует камеру по графу при загрузке
             >
               {/* Сетка на заднем фоне холста */}
@@ -134,6 +168,19 @@ function DialogCanvas({ dialog, updateDialogPhrase, updateDialogPhrasesPositions
         closable={{ 'aria-label': 'Close Button' }}
         onClose={onDrawerClose}
         open={!!selectedNodeID}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Space size="middle">
+              <Button
+                color="danger"
+                variant="outlined"
+                onClick={onDeleteButtonClick}
+              >
+                <DeleteOutlined /> Удалить
+              </Button>
+            </Space>
+          </div>
+        }
       >
         {!!selectedNodeID && (
           <PhraseDrawerContent
