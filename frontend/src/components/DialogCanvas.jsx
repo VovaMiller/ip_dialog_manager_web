@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button, Space, Drawer } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
-import { ReactFlow, Controls, Background, useNodesState, useEdgesState } from '@xyflow/react';
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { ReactFlow, Controls, Background, useNodesState, useEdgesState, useReactFlow } from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
 
 import PhraseNode from '@/components/PhraseNode';
@@ -19,11 +19,13 @@ function DialogCanvas({
   updateDialogPhrasesPositions,
   deletePhrases,
   deletePhrasesConnections,
+  createPhrase,
 }) {
   const [dialogID, setDialogID] = useState(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNodeID, setSelectedNodeID] = useState(null);
+  const { screenToFlowPosition } = useReactFlow();
 
   // Функция для автоматического просчёта позиций вершин для данного графа диалога.
   const getLayoutedNodes = (dNodes, dEdges) => {
@@ -127,6 +129,37 @@ function DialogCanvas({
     }
   };
 
+  const onAddButtonClick = async () => {
+    if (dialogID) {
+      // Вычисление позиции.
+      let position;
+      if (selectedNodeID) {
+        // Если есть выбранная фраза, то размещаем новую фразу чуть ниже.
+        const selectedNode = nodes.find(n => n.id === selectedNodeID);
+        position = {
+          x: selectedNode?.position?.x || 0,
+          y: (selectedNode?.position?.y || 0) + 48,
+        }
+      } else {
+        // Если нет выбранной фразы, то размещаем верхний левый угол карточки по центру холста.
+        const flowContainer = document.querySelector('.react-flow');
+        if (flowContainer) {
+          const rect = flowContainer.getBoundingClientRect();
+          position = screenToFlowPosition({
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+          });
+        }
+      }
+
+      // Создание фразы.
+      const newPhraseID = await createPhrase(dialogID, position);
+
+      // Переключение на новую фразу.
+      setSelectedNodeID(newPhraseID);
+    }
+  }
+
   const updatePhrase = (newPhraseNode) => {
     if (!!dialog && !!newPhraseNode) {
       updateDialogPhrase(dialog.id, newPhraseNode);
@@ -137,27 +170,39 @@ function DialogCanvas({
     <>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
         {dialogID && (
-          <div style={{ flexGrow: 1, border: '1px solid #d9d9d9', borderRadius: '8px', backgroundColor: '#fff', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange} // Разрешает перетаскивание блоков мышкой
-              onEdgesChange={onEdgesChange} // Разрешает изменять связи
-              onNodeClick={onNodeClick}
-              onNodeDragStop={onNodeDragStop}
-              onDelete={onDelete}
-              zoomOnScroll={false}
-              preventScrolling={false}
-              nodeTypes={nodeTypes}
-              deleteKeyCode={['Delete', 'Backspace']}
-              fitView // Автоматически центрирует камеру по графу при загрузке
-            >
-              {/* Сетка на заднем фоне холста */}
-              <Background color="#ccc" gap={16} size={1} />
-              {/* Кнопки зума (+ / -) в левом углу */}
-              <Controls />
-            </ReactFlow>
-          </div>
+          <>
+            <div style={{ flexGrow: 1, border: '1px solid #d9d9d9', borderRadius: '8px', backgroundColor: '#fff', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange} // Разрешает перетаскивание блоков мышкой
+                onEdgesChange={onEdgesChange} // Разрешает изменять связи
+                onNodeClick={onNodeClick}
+                onNodeDragStop={onNodeDragStop}
+                onDelete={onDelete}
+                zoomOnScroll={false}
+                preventScrolling={false}
+                nodeTypes={nodeTypes}
+                deleteKeyCode={['Delete', 'Backspace']}
+                fitView // Автоматически центрирует камеру по графу при загрузке
+              >
+                {/* Сетка на заднем фоне холста */}
+                <Background color="#ccc" gap={16} size={1} />
+                {/* Кнопки зума (+ / -) в левом углу */}
+                <Controls />
+              </ReactFlow>
+            </div>
+
+            <Space size="middle" style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 10 }}>
+              <Button
+                color="default"
+                variant="outlined"
+                onClick={onAddButtonClick}
+              >
+                <PlusOutlined /> Добавить фразу
+              </Button>
+            </Space>
+          </>
         )}
       </div>
 
@@ -169,17 +214,15 @@ function DialogCanvas({
         onClose={onDrawerClose}
         open={!!selectedNodeID}
         footer={
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Space size="middle">
-              <Button
-                color="danger"
-                variant="outlined"
-                onClick={onDeleteButtonClick}
-              >
-                <DeleteOutlined /> Удалить
-              </Button>
-            </Space>
-          </div>
+          <Space size="middle" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              color="danger"
+              variant="outlined"
+              onClick={onDeleteButtonClick}
+            >
+              <DeleteOutlined /> Удалить
+            </Button>
+          </Space>
         }
       >
         {!!selectedNodeID && (

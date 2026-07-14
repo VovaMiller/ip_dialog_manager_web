@@ -138,29 +138,40 @@ class Dialog:
         else:
             raise cls.ElementError
     
+    @staticmethod
+    def build_react_flow_node(phr: Phrase | None = None) -> dict[str, Any]:
+        """Сконструировать структуру данных о фразе в формате React Flow.
+
+        Если не передать фразу, то сконструирует пустой шаблон вершины,
+        который можно использовать, например, при создании фразы.
+        """
+        if phr is None:
+            phr = Phrase("")
+        return {
+            "id": phr._id,
+            "position": {
+                "x": phr.meta_pos[0] if (phr.meta_pos is not None) else 0,
+                "y": phr.meta_pos[1] if (phr.meta_pos is not None) else 0,
+            },
+            "data": {
+                "phrase_id": phr._id,
+                "phrase_text": phr.text if (phr.text is not None) else "",
+                "phrase_next": phr._next,
+                "phrase_has_info": phr.has_info,
+                "phrase_dont_has_info": phr.dont_has_info,
+                "phrase_precondition": phr.precondition,
+                "phrase_give_info": phr.give_info,
+                "phrase_action": phr.action,
+            },
+            "type": "phraseNode",
+        }
+    
     def get_react_flow_nodes(self) -> list[dict[str, Any]]:
         """Получить список данных о вершинах фраз для React Flow.
         """
         nodes = []
         for phr in self.phrases.values():
-            nodes.append({
-                "id": phr._id,
-                "position": {
-                    "x": phr.meta_pos[0] if phr.meta_pos is not None else 0,
-                    "y": phr.meta_pos[1] if phr.meta_pos is not None else 0,
-                },
-                "data": {
-                    "phrase_id": phr._id,
-                    "phrase_text": phr.text or "",
-                    "phrase_next": phr._next,
-                    "phrase_has_info": phr.has_info,
-                    "phrase_dont_has_info": phr.dont_has_info,
-                    "phrase_precondition": phr.precondition,
-                    "phrase_give_info": phr.give_info,
-                    "phrase_action": phr.action,
-                },
-                "type": "phraseNode",
-            })
+            nodes.append(Dialog.build_react_flow_node(phr))
         return nodes
     
     def get_react_flow_edges(self) -> list[dict[str, Any]]:

@@ -13,8 +13,32 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [gameDialogs, setGameDialogs] = useState(null);
   const [selectedDialogID, setSelectedDialogID] = useState(null);
+  const [phraseSample, setPhraseSample] = useState(null);
 
-  // Кастомная функция отправки файла через fetch
+  // Получить объект шаблонной фразы (один раз берётся с сервера).
+  const getPhraseSample = async () => {
+    if (phraseSample) {
+      return phraseSample;
+    }
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/dialogs/phrase-sample');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.detail || `Ошибка сервера: ${response.status}`;
+        throw new Error(errorMessage);
+      }
+      const result = await response.json();
+      if (!result.data) {
+        throw new Error('Ответ сервера получен, но данных о фразе нет');
+      }
+      setPhraseSample(result.data);
+      return result.data;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  };
+
   const handleUpload = async ({ file, onSuccess, onError }) => {
     setLoading(true);
     
@@ -28,15 +52,12 @@ function App() {
         method: 'POST',
         body: formData,
       });
-
-      const result = await response.json();
-
       if (!response.ok) {
-        // Если FastAPI вернул ошибку клиента (400, 422), извлекаем её текст
-        throw new Error(result.detail || 'Произошла ошибка при загрузке');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.detail || `Произошла ошибка сервера (${response.status}) при загрузке файла`;
+        throw new Error(errorMessage);
       }
-
-      // Сохраняем полученную от бэкенда статистику в состояние
+      const result = await response.json();
       setGameDialogs(result.data);
       onSuccess(result);
       message.success(`Файл ${file.name} успешно обработан сервером.`);
@@ -138,6 +159,62 @@ function App() {
     }
   };
 
+  const createPhrase = async (dialogID, position) => {
+    if (!!gameDialogs && !!dialogID) {
+      const sample = await getPhraseSample();
+      if (!sample) {
+        message.error('Ошибка при создании фразы!');
+        return;
+      }
+      let newPhraseID;
+      setGameDialogs(curGameDialogs =>
+        produce(curGameDialogs, draft => {
+          const dlg = draft.dialogs?.find(d => d.id === dialogID);
+          if (dlg) {
+            // Генерация нового ID.
+            const nodeIDs = new Set();
+            const phraseIDs = new Set();
+            dlg.nodes.forEach(n => {
+              nodeIDs.add(n.id);
+              phraseIDs.add(n.data.phrase_id);
+            });
+            let i = 0;
+            while (true) {
+              newPhraseID = `new${i}`;
+              if (nodeIDs.has(newPhraseID) || phraseIDs.has(newPhraseID)) {
+                i += 1;
+              } else {
+                break;
+              }
+            }
+
+            // Вычисление координат.
+            if (!position) {
+              let sumX = 0, sumY = 0;
+              for (const node of dlg.nodes) {
+                if (!!node.position?.x && !!node.position?.y) {
+                  sumX += node.position.x;
+                  sumY += node.position.y;
+                }
+              }
+              position = {
+                x: sumX / dlg.nodes.length,
+                y: sumY / dlg.nodes.length,
+              };
+            }
+
+            // Добавление фразы.
+            const newPhrase = structuredClone(sample);
+            newPhrase.id = newPhraseID;
+            newPhrase.data.phrase_id = newPhraseID;
+            newPhrase.position = { ...position };
+            dlg.nodes.push(newPhrase);
+          }
+        })
+      );
+      return newPhraseID;
+    }
+  };
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
@@ -192,6 +269,7 @@ function App() {
                 updateDialogPhrasesPositions={updateDialogPhrasesPositions}
                 deletePhrases={deletePhrases}
                 deletePhrasesConnections={deletePhrasesConnections}
+                createPhrase={createPhrase}
               />
             </ReactFlowProvider>
           </>

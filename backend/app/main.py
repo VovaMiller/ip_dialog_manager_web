@@ -46,11 +46,3 @@ def read_root():
 
 # http://127.0.0.1:8000/api/dialogs
 app.include_router(dialogs.router)
-
-# TODO: test
-@app.get("/api/test-button")
-def handle_test_button():
-    return {
-        "status": "success",
-        "message": "Hello, world!"
-    }

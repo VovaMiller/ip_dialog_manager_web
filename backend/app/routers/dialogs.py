@@ -1,7 +1,7 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
-from app.services.dialogs import GameDialogs
+from app.services.dialogs import Dialog, GameDialogs
 
 router = APIRouter(prefix="/api/dialogs", tags=["Диалоги"])
 
@@ -103,4 +103,19 @@ async def upload_dialog_xml(file: UploadFile = File(...)):
             "filename": file.filename,
             "dialogs": response_dialogs,
         }
+    }
+
+class PhraseSampleResponse(BaseModel):
+    status: str
+    data: ReactFlowNode
+
+@router.get(
+    "/phrase-sample",
+    summary="Получить пустой шаблон фразы диалога",
+    response_model=PhraseSampleResponse,
+)
+def get_phrase_sample():
+    return {
+        "status": "success",
+        "data": Dialog.build_react_flow_node(),
     }
