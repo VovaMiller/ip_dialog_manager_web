@@ -14,6 +14,7 @@ function App() {
   const [gameDialogs, setGameDialogs] = useState(null);
   const [selectedDialogID, setSelectedDialogID] = useState(null);
   const [phraseSample, setPhraseSample] = useState(null);
+  const [edgeSample, setEdgeSample] = useState(null);
 
   // Получить объект шаблонной фразы (один раз берётся с сервера).
   const getPhraseSample = async () => {
@@ -32,6 +33,30 @@ function App() {
         throw new Error('Ответ сервера получен, но данных о фразе нет');
       }
       setPhraseSample(result.data);
+      return result.data;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  };
+
+  // Получить объект шаблонного ребра (один раз берётся с сервера).
+  const getEdgeSample = async () => {
+    if (edgeSample) {
+      return edgeSample;
+    }
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/dialogs/edge-sample');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.detail || `Ошибка сервера: ${response.status}`;
+        throw new Error(errorMessage);
+      }
+      const result = await response.json();
+      if (!result.data) {
+        throw new Error('Ответ сервера получен, но данных о ребре нет');
+      }
+      setEdgeSample(result.data);
       return result.data;
     } catch (error) {
       console.error(error);
@@ -140,6 +165,43 @@ function App() {
           if (dlg) {
             dlg.edges = dlg.edges?.filter(e => !nodesIDSet.has(e.target) && !nodesIDSet.has(e.source)) || [];
             dlg.nodes = dlg.nodes?.filter(n => !nodesIDSet.has(n.id)) || [];
+          }
+        })
+      );
+    }
+  };
+
+  const addPhraseConnection = async (dialogID, sourceID, targetID) => {
+    if (!!gameDialogs && !!sourceID && !!targetID) {
+      const sample = await getEdgeSample();
+      if (!sample) {
+        message.error('Ошибка при создании связи между фразами!');
+        return;
+      }
+      setGameDialogs(curGameDialogs =>
+        produce(curGameDialogs, draft => {
+          const dlg = draft.dialogs?.find(d => d.id === dialogID);
+          if (dlg) {
+            if (!dlg.edges.some(e => (e.source === sourceID) && (e.target === targetID))) {
+              const newEdge = structuredClone(sample);
+              newEdge.id = `e_${sourceID}_${targetID}`;
+              newEdge.source = sourceID;
+              newEdge.target = targetID;
+              dlg.edges.push(newEdge);
+            }
+          }
+        })
+      );
+    }
+  };
+
+  const delPhraseConnection = (dialogID, sourceID, targetID) => {
+    if (!!gameDialogs && !!sourceID && !!targetID) {
+      setGameDialogs(curGameDialogs =>
+        produce(curGameDialogs, draft => {
+          const dlg = draft.dialogs?.find(d => d.id === dialogID);
+          if (dlg) {
+            dlg.edges = dlg.edges?.filter(e => (e.source !== sourceID) || (e.target !== targetID));
           }
         })
       );
@@ -268,6 +330,8 @@ function App() {
                 updateDialogPhrase={updateDialogPhrase}
                 updateDialogPhrasesPositions={updateDialogPhrasesPositions}
                 deletePhrases={deletePhrases}
+                addPhraseConnection={addPhraseConnection}
+                delPhraseConnection={delPhraseConnection}
                 deletePhrasesConnections={deletePhrasesConnections}
                 createPhrase={createPhrase}
               />

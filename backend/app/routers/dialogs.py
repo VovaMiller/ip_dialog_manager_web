@@ -16,7 +16,6 @@ def get_all_dialogs():
 class PhraseData(BaseModel):
     phrase_id: str
     phrase_text: str
-    phrase_next: list[str]
     phrase_has_info: list[str]
     phrase_dont_has_info: list[str]
     phrase_precondition: list[str]
@@ -105,6 +104,7 @@ async def upload_dialog_xml(file: UploadFile = File(...)):
         }
     }
 
+
 class PhraseSampleResponse(BaseModel):
     status: str
     data: ReactFlowNode
@@ -118,4 +118,20 @@ def get_phrase_sample():
     return {
         "status": "success",
         "data": Dialog.build_react_flow_node(),
+    }
+
+
+class EdgeSampleResponse(BaseModel):
+    status: str
+    data: ReactFlowEdge
+
+@router.get(
+    "/edge-sample",
+    summary="Получить пустой шаблон ребра графа диалога",
+    response_model=EdgeSampleResponse,
+)
+def get_edge_sample():
+    return {
+        "status": "success",
+        "data": Dialog.build_react_flow_edge(),
     }

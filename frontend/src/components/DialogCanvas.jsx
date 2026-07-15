@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button, Space, Drawer, Popconfirm } from 'antd';
-import { DeleteOutlined, DotChartOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, DotChartOutlined, PlusOutlined, SortAscendingOutlined } from '@ant-design/icons';
 import { ReactFlow, Controls, Background, useNodesState, useEdgesState, useReactFlow } from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
 
@@ -18,6 +18,8 @@ function DialogCanvas({
   updateDialogPhrase,
   updateDialogPhrasesPositions,
   deletePhrases,
+  addPhraseConnection,
+  delPhraseConnection,
   deletePhrasesConnections,
   createPhrase,
 }) {
@@ -123,6 +125,25 @@ function DialogCanvas({
     }
   };
 
+  // Колбэк создания связи между вершинами через интерфейс ReactFlow.
+  const onConnect = async ({ source, target }) => {
+    if (dialogID) {
+      await addPhraseConnection(dialogID, source, target);
+    }
+  };
+
+  // Колбэк обновления связи между вершинами через интерфейс ReactFlow.
+  const onReconnect = async (oldEdge, newConnection) => {
+    if (dialogID) {
+      const { source: oldSource, target: oldTarget } = oldEdge;
+      const { source: newSource, target: newTarget } = newConnection;
+      if ((oldSource !== newSource) || (oldTarget !== newTarget)) {
+        delPhraseConnection(dialogID, oldSource, oldTarget);
+        await addPhraseConnection(dialogID, newSource, newTarget);
+      }
+    }
+  };
+
   const onDrawerClose = () => {
     setSelectedNodeID(null);
   };
@@ -173,12 +194,6 @@ function DialogCanvas({
     fitView();
   };
 
-  const updatePhrase = (newPhraseNode) => {
-    if (!!dialog && !!newPhraseNode) {
-      updateDialogPhrase(dialog.id, newPhraseNode);
-    }
-  };
-
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', height: '90vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
@@ -193,9 +208,13 @@ function DialogCanvas({
                 onNodeClick={onNodeClick}
                 onNodeDragStop={onNodeDragStop}
                 onDelete={onDelete}
+                onConnect={onConnect}
+                onReconnect={onReconnect}
+                edgesReconnectable={true}
                 zoomOnScroll={false}
                 preventScrolling={false}
                 nodeTypes={nodeTypes}
+                connectionLineType="straight"
                 deleteKeyCode={['Delete', 'Backspace']}
                 fitView // Автоматически центрирует камеру по графу при загрузке
               >
@@ -255,8 +274,14 @@ function DialogCanvas({
       >
         {!!selectedNodeID && (
           <PhraseDrawerContent
+            dialogID={dialogID}
+            nodesIDs={nodes.map(n => n.id)}
+            edges={edges}
             phraseNode={nodes.find(phr => phr.id === selectedNodeID)}
-            updatePhrase={updatePhrase}
+            updateDialogPhrase={updateDialogPhrase}
+            addPhraseConnection={addPhraseConnection}
+            delPhraseConnection={delPhraseConnection}
+            deletePhrasesConnections={deletePhrasesConnections}
           />
         )}
       </Drawer>

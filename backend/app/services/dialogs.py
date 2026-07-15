@@ -156,7 +156,6 @@ class Dialog:
             "data": {
                 "phrase_id": phr._id,
                 "phrase_text": phr.text if (phr.text is not None) else "",
-                "phrase_next": phr._next,
                 "phrase_has_info": phr.has_info,
                 "phrase_dont_has_info": phr.dont_has_info,
                 "phrase_precondition": phr.precondition,
@@ -164,6 +163,24 @@ class Dialog:
                 "phrase_action": phr.action,
             },
             "type": "phraseNode",
+        }
+    
+    @staticmethod
+    def build_react_flow_edge() -> dict[str, Any]:
+        """Сконструировать структуру данных о связи между фразами в формате React Flow.
+        """
+        return {
+            "id": "",
+            "type": "straight",
+            "source": "",
+            "target": "",
+            "animated": False,
+            "markerEnd": {
+                "type": "arrow",
+                # "color": "#1890ff",
+                "width": 20,
+                "height": 20,
+            },
         }
     
     def get_react_flow_nodes(self) -> list[dict[str, Any]]:
@@ -180,19 +197,11 @@ class Dialog:
         edges = []
         for phr in self.phrases.values():
             for phr_next_id in phr._next:
-                edges.append({
-                    "id": f"e_{phr._id}_{phr_next_id}",
-                    "type": "straight",
-                    "source": phr._id,
-                    "target": phr_next_id,
-                    "animated": False,
-                    "markerEnd": {
-                        "type": "arrow",
-                        # "color": "#1890ff",
-                        "width": 20,
-                        "height": 20,
-                    },
-                })
+                edge = Dialog.build_react_flow_edge()
+                edge["id"] = f"e_{phr._id}_{phr_next_id}"
+                edge["source"] = phr._id
+                edge["target"] = phr_next_id
+                edges.append(edge)
         return edges
 
 class GameDialogs:

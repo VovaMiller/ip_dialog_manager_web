@@ -8,7 +8,6 @@ function PhraseNode({ data, dragging }) {
   const {
     phrase_id,
     phrase_text,
-    phrase_next,
     phrase_has_info,
     phrase_dont_has_info,
     phrase_precondition,
