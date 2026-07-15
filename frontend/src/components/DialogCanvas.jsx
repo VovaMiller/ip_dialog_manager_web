@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Button, Space, Drawer } from 'antd';
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Space, Drawer, Popconfirm } from 'antd';
+import { DeleteOutlined, DotChartOutlined, PlusOutlined } from '@ant-design/icons';
 import { ReactFlow, Controls, Background, useNodesState, useEdgesState, useReactFlow } from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
 
@@ -164,7 +164,14 @@ function DialogCanvas({
       // Переключение на новую фразу.
       setSelectedNodeID(newPhraseID);
     }
-  }
+  };
+
+  const onUpdPositionsClick = () => {
+    const nodesLayouted = getLayoutedNodes(nodes, edges);
+    setNodes(nodesLayouted);
+    savePositions(nodesLayouted);
+    fitView();
+  };
 
   const updatePhrase = (newPhraseNode) => {
     if (!!dialog && !!newPhraseNode) {
@@ -207,6 +214,21 @@ function DialogCanvas({
               >
                 <PlusOutlined /> Добавить фразу
               </Button>
+
+              <Popconfirm
+                title="Обновить размещение фраз"
+                description="Вы уверены, что хотите пересчитать расположение вершин всех фраз?"
+                onConfirm={onUpdPositionsClick}
+                okText="Да"
+                cancelText="Нет"
+              >
+                <Button
+                  color="default"
+                  variant="outlined"
+                >
+                  <DotChartOutlined /> Обновить размещение
+                </Button>
+              </Popconfirm>
             </Space>
           </>
         )}
