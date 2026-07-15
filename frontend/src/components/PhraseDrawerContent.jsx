@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { Input, Select, Space } from 'antd';
 import fastDeepEqual from 'fast-deep-equal';
 
@@ -14,8 +14,6 @@ function PhraseDrawerContent({
 }) {
 
   const [buffer, setBuffer] = useState(null);
-
-  // console.log("PhraseDrawerContent");  // TODO: optimize
 
   // Обновление буфера при открытии новой фразы.
   useEffect(() => {
@@ -93,4 +91,12 @@ function PhraseDrawerContent({
 
 }
 
-export default PhraseDrawerContent;
+export default memo(PhraseDrawerContent, (prevProps, nextProps) => {
+  return (
+    (prevProps.dialogID === nextProps.dialogID)
+    && fastDeepEqual(prevProps.nodesIDs, nextProps.nodesIDs)
+    && fastDeepEqual(prevProps.edges, nextProps.edges)
+    && (prevProps.phraseNode.id === nextProps.phraseNode.id)
+    && fastDeepEqual(prevProps.phraseNode.data, nextProps.phraseNode.data)
+  );
+});
