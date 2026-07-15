@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, Space, Drawer, Popconfirm } from 'antd';
 import { DeleteOutlined, DotChartOutlined, PlusOutlined, SortAscendingOutlined } from '@ant-design/icons';
 import { ReactFlow, Controls, Background, useNodesState, useEdgesState, useReactFlow } from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
 
+import EditorContext from '@/context/EditorContext';
 import PhraseNode from '@/components/PhraseNode';
 import PhraseDrawerContent from '@/components/PhraseDrawerContent';
 
@@ -28,6 +29,18 @@ function DialogCanvas({
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNodeID, setSelectedNodeID] = useState(null);
   const { fitView, screenToFlowPosition } = useReactFlow();
+
+  // Дубликаты ID фраз.
+  const duplicatePhraseIDs = useMemo(() => {
+    const countsMap = nodes.reduce((acc, node) => {
+      const phraseID = node?.data?.phrase_id;
+      if (phraseID) {
+        acc.set(phraseID, (acc.get(phraseID) || 0) + 1);
+      }
+      return acc;
+    }, new Map());
+    return Array.from(countsMap).flatMap(([phrID, cnt]) => (cnt > 1) ? [phrID] : []);
+  }, [nodes]);
 
   // Функция для автоматического просчёта позиций вершин для данного графа диалога.
   const getLayoutedNodes = (dNodes, dEdges) => {
@@ -210,30 +223,38 @@ function DialogCanvas({
         {dialogID && (
           <>
             <div style={{ flexGrow: 1, border: '1px solid #d9d9d9', borderRadius: '8px', backgroundColor: '#fff', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange} // Разрешает перетаскивание блоков мышкой
-                onEdgesChange={onEdgesChange} // Разрешает изменять связи
-                onNodeClick={onNodeClick}
-                onNodeDragStart={onNodeDragStart}
-                onNodeDragStop={onNodeDragStop}
-                onDelete={onDelete}
-                onConnect={onConnect}
-                onReconnect={onReconnect}
-                edgesReconnectable={true}
-                zoomOnScroll={false}
-                preventScrolling={false}
-                nodeTypes={nodeTypes}
-                connectionLineType="straight"
-                deleteKeyCode={['Delete', 'Backspace']}
-                fitView // Автоматически центрирует камеру по графу при загрузке
+              <EditorContext.Provider
+                value={{
+                  selectedNodeID,
+                  afterSelectedNodeIDs: edges.flatMap(e => (e.source === selectedNodeID) ? [e.target] : []),
+                  duplicatePhraseIDs,
+                }}
               >
-                {/* Сетка на заднем фоне холста */}
-                <Background color="#ccc" gap={16} size={1} />
-                {/* Кнопки зума (+ / -) в левом углу */}
-                <Controls />
-              </ReactFlow>
+                <ReactFlow
+                  nodes={nodes}
+                  edges={edges}
+                  onNodesChange={onNodesChange} // Разрешает перетаскивание блоков мышкой
+                  onEdgesChange={onEdgesChange} // Разрешает изменять связи
+                  onNodeClick={onNodeClick}
+                  onNodeDragStart={onNodeDragStart}
+                  onNodeDragStop={onNodeDragStop}
+                  onDelete={onDelete}
+                  onConnect={onConnect}
+                  onReconnect={onReconnect}
+                  edgesReconnectable={true}
+                  zoomOnScroll={false}
+                  preventScrolling={false}
+                  nodeTypes={nodeTypes}
+                  connectionLineType="straight"
+                  deleteKeyCode={['Delete', 'Backspace']}
+                  fitView // Автоматически центрирует камеру по графу при загрузке
+                >
+                  {/* Сетка на заднем фоне холста */}
+                  <Background color="#ccc" gap={16} size={1} />
+                  {/* Кнопки зума (+ / -) в левом углу */}
+                  <Controls />
+                </ReactFlow>
+              </EditorContext.Provider>
             </div>
 
             <Space size="middle" style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 10 }}>

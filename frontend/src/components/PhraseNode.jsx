@@ -1,9 +1,12 @@
+import { useContext } from 'react';
 import { Card, Tooltip, Typography } from 'antd';
 import { Handle, Position } from '@xyflow/react';
 
+import EditorContext from '@/context/EditorContext';
+
 const { Text } = Typography;
 
-function PhraseNode({ data, dragging }) {
+function PhraseNode({ id, data, dragging, selected }) {
 
   const {
     phrase_id,
@@ -15,10 +18,38 @@ function PhraseNode({ data, dragging }) {
     phrase_action,
   } = data;
 
+  const { selectedNodeID, afterSelectedNodeIDs, duplicatePhraseIDs } = useContext(EditorContext);
+
+  const isSelectedReactFlow = !!selected;
+  const isSelectedCustom = (id === selectedNodeID);
+  const isAfterSelected = !!afterSelectedNodeIDs.find(nID => id === nID);
+  const isDuplicateID = !!duplicatePhraseIDs.find(phrID => phrase_id === phrID);
   const hasText = (phrase_text && (phrase_text.trim().length > 0));
 
   // Если true, то текст фразы отображается не на карточке, а в подсказке.
   const compactCard = true;
+
+  // // TODO: optimize
+  // if (id === "0") console.log("PhraseNode");
+
+  const getBackgroundColor = () => {
+    if (isSelectedCustom) return '#cccccc';
+    if (isAfterSelected) return '#f0f0f0';
+    return '#ffffff';
+  };
+
+  const getIDColor = () => {
+    if (isDuplicateID) return '#ee0000';
+    return '#000000';
+  };
+
+  const getBorder = () => {
+    if (isSelectedReactFlow) {
+      return hasText ? '1px solid #1164b1' : '1px dashed #1164b1';
+    } else {
+      return hasText ? '1px solid #8c8c8c' : '1px dashed #8c8c8c';
+    }
+  };
 
   return (
     <div
@@ -60,11 +91,12 @@ function PhraseNode({ data, dragging }) {
           style={{
             width: '100%',
             boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-            border: hasText ? '1px solid #8c8c8c' : '1px dashed #8c8c8c',
+            border: getBorder(),
             borderRadius: '16px',
-            backgroundColor: hasText ? '#ffffff' : '#fafafa',
+            backgroundColor: getBackgroundColor(),
           }}
           styles={{
+            header: { color: getIDColor() },
             body: { padding: '8px 10px' },
           }}
         >
