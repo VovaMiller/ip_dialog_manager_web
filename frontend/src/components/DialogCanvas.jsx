@@ -25,7 +25,7 @@ function DialogCanvas({
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNodeID, setSelectedNodeID] = useState(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const { fitView, screenToFlowPosition } = useReactFlow();
 
   // Функция для автоматического просчёта позиций вершин для данного графа диалога.
   const getLayoutedNodes = (dNodes, dEdges) => {
@@ -67,6 +67,7 @@ function DialogCanvas({
         setSelectedNodeID(null);
       }
 
+      // Обновление графа.
       const {nodes: dNodes, edges: dEdges} = dialog;
       if (isNewDialog) {
         const noPositionData = dNodes.every(n => (n.position.x == 0) && (n.position.y == 0));
@@ -82,6 +83,11 @@ function DialogCanvas({
       } else {
         setNodes(dNodes);
         setEdges(dEdges);
+      }
+
+      // Центрирование.
+      if (isNewDialog) {
+        fitView();
       }
     } else {
       setDialogID(null);
@@ -168,7 +174,7 @@ function DialogCanvas({
 
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '90vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
         {dialogID && (
           <>
             <div style={{ flexGrow: 1, border: '1px solid #d9d9d9', borderRadius: '8px', backgroundColor: '#fff', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
