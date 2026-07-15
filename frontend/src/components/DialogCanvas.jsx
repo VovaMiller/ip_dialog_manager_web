@@ -103,6 +103,16 @@ function DialogCanvas({
     setSelectedNodeID(node?.id);
   };
 
+  const onNodeDragStart = (event, draggedNode, draggedNodes) => {
+    if (selectedNodeID) {
+      if (draggedNodes.length === 1) {
+        setSelectedNodeID(draggedNodes[0].id);
+      } else {
+        setSelectedNodeID(null);
+      }
+    }
+  };
+
   const onNodeDragStop = (event, draggedNode, draggedNodes) => {
     savePositions(draggedNodes);
   };
@@ -206,6 +216,7 @@ function DialogCanvas({
                 onNodesChange={onNodesChange} // Разрешает перетаскивание блоков мышкой
                 onEdgesChange={onEdgesChange} // Разрешает изменять связи
                 onNodeClick={onNodeClick}
+                onNodeDragStart={onNodeDragStart}
                 onNodeDragStop={onNodeDragStop}
                 onDelete={onDelete}
                 onConnect={onConnect}
