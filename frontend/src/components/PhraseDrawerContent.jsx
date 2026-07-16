@@ -4,7 +4,7 @@ import fastDeepEqual from 'fast-deep-equal';
 
 function PhraseDrawerContent({
   dialogID,
-  nodesIDs,
+  nodesInfo,
   edges,
   phraseNode,
   updateDialogPhrase,
@@ -77,11 +77,11 @@ function PhraseDrawerContent({
               allowClear
               style={{ width: '100%' }}
               placeholder="Выбрать..."
-              value={edges.filter(e => e.source === phraseNode.id).map(e => e.target)}
+              value={edges.flatMap(e => (e.source === phraseNode.id) ? [e.target] : [])}
               onSelect={onPhraseNextSelect}
               onDeselect={onPhraseNextDeselect}
               onClear={onPhraseNextClear}
-              options={nodesIDs.filter(nodeID => nodeID !== phraseNode.id).map(nodeID => ({ label: nodeID, value: nodeID }))}
+              options={nodesInfo.flatMap(info => (phraseNode.id !== info.nodeID) ? [{ label: info.phraseID, value: info.nodeID }] : [])}
             />
           </div>
         </Space>
@@ -94,7 +94,7 @@ function PhraseDrawerContent({
 export default memo(PhraseDrawerContent, (prevProps, nextProps) => {
   return (
     (prevProps.dialogID === nextProps.dialogID)
-    && fastDeepEqual(prevProps.nodesIDs, nextProps.nodesIDs)
+    && fastDeepEqual(prevProps.nodesInfo, nextProps.nodesInfo)
     && fastDeepEqual(prevProps.edges, nextProps.edges)
     && (prevProps.phraseNode.id === nextProps.phraseNode.id)
     && fastDeepEqual(prevProps.phraseNode.data, nextProps.phraseNode.data)

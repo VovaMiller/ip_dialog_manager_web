@@ -307,7 +307,7 @@ function DialogCanvas({
         {!!selectedNodeID && (
           <PhraseDrawerContent
             dialogID={dialogID}
-            nodesIDs={nodes.map(n => n.id)}
+            nodesInfo={nodes.map(n => ({nodeID: n.id, phraseID: n.data?.phrase_id}))}
             edges={edges}
             phraseNode={nodes.find(phr => phr.id === selectedNodeID)}
             updateDialogPhrase={updateDialogPhrase}
