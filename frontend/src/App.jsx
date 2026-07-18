@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { Upload, Card, Typography, Space, message, Table, Tag, Divider, Select } from 'antd';
 import { InboxOutlined, FileTextOutlined } from '@ant-design/icons';
 import { ReactFlowProvider } from '@xyflow/react';
-import { produce } from 'immer';
 
+import useSampleStore from '@/store/useSampleStore';
+import useGameDialogsStore from '@/store/useGameDialogsStore';
 import DialogCanvas from '@/components/DialogCanvas';
 
 const { Dragger } = Upload;
@@ -11,58 +13,21 @@ const { Title, Text } = Typography;
 
 function App() {
   const [loading, setLoading] = useState(false);
-  const [gameDialogs, setGameDialogs] = useState(null);
   const [selectedDialogID, setSelectedDialogID] = useState(null);
-  const [phraseSample, setPhraseSample] = useState(null);
-  const [edgeSample, setEdgeSample] = useState(null);
+  const loadPhraseSample = useSampleStore(state => state.loadPhraseSample);
+  const loadEdgeSample = useSampleStore(state => state.loadEdgeSample);
+  const { gameDialogs, setGameDialogs } = useGameDialogsStore(
+    useShallow((state) => ({
+      gameDialogs: state.gameDialogs,
+      setGameDialogs: state.setGameDialogs,
+    }))
+  );
 
-  // Получить объект шаблонной фразы (один раз берётся с сервера).
-  const getPhraseSample = async () => {
-    if (phraseSample) {
-      return phraseSample;
-    }
-    try {
-      const response = await fetch('http://127.0.0.1:8000/api/dialogs/phrase-sample');
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.detail || `Ошибка сервера: ${response.status}`;
-        throw new Error(errorMessage);
-      }
-      const result = await response.json();
-      if (!result.data) {
-        throw new Error('Ответ сервера получен, но данных о фразе нет');
-      }
-      setPhraseSample(result.data);
-      return result.data;
-    } catch (error) {
-      console.error(error);
-      return null;
-    }
-  };
-
-  // Получить объект шаблонного ребра (один раз берётся с сервера).
-  const getEdgeSample = async () => {
-    if (edgeSample) {
-      return edgeSample;
-    }
-    try {
-      const response = await fetch('http://127.0.0.1:8000/api/dialogs/edge-sample');
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.detail || `Ошибка сервера: ${response.status}`;
-        throw new Error(errorMessage);
-      }
-      const result = await response.json();
-      if (!result.data) {
-        throw new Error('Ответ сервера получен, но данных о ребре нет');
-      }
-      setEdgeSample(result.data);
-      return result.data;
-    } catch (error) {
-      console.error(error);
-      return null;
-    }
-  };
+  // Загрузка шаблонов при старте страницы.
+  useEffect(() => {
+    loadPhraseSample();
+    loadEdgeSample();
+  }, [loadPhraseSample, loadEdgeSample]);
 
   const handleUpload = async ({ file, onSuccess, onError }) => {
     setLoading(true);
@@ -123,161 +88,6 @@ function App() {
     setSelectedDialogID(value);
   };
 
-  const updateDialogPhrase = (dialogID, phrase) => {
-    if (!!gameDialogs && !!dialogID && !!phrase) {
-      setGameDialogs(curGameDialogs =>
-        produce(curGameDialogs, draft => {
-          const dlg = draft.dialogs?.find(d => d.id === dialogID);
-          if (dlg) {
-            const idx = dlg.nodes?.findIndex(n => n.id === phrase.id);
-            if (idx >= 0) {
-              dlg.nodes[idx] = phrase;
-            }
-          }
-        })
-      );
-    }
-  };
-
-  const updateDialogPhrasesPositions = (dialogID, newPositionsMap) => {
-    if (!!gameDialogs && !!dialogID && !!newPositionsMap) {
-      setGameDialogs(curGameDialogs =>
-        produce(curGameDialogs, draft => {
-          const dlg = draft.dialogs?.find(d => d.id === dialogID);
-          if (dlg) {
-            for (const [phrID, newPosition] of newPositionsMap) {
-              const phr = dlg.nodes?.find(n => n.id === phrID);
-              if (phr) {
-                phr.position = {...newPosition};
-              }
-            }
-          }
-        })
-      );
-    }
-  };
-
-  const deletePhrases = (dialogID, nodesIDSet) => {
-    if (!!gameDialogs && !!dialogID && !!nodesIDSet) {
-      setGameDialogs(curGameDialogs =>
-        produce(curGameDialogs, draft => {
-          const dlg = draft.dialogs?.find(d => d.id === dialogID);
-          if (dlg) {
-            dlg.edges = dlg.edges?.filter(e => !nodesIDSet.has(e.target) && !nodesIDSet.has(e.source)) || [];
-            dlg.nodes = dlg.nodes?.filter(n => !nodesIDSet.has(n.id)) || [];
-          }
-        })
-      );
-    }
-  };
-
-  const addPhraseConnection = async (dialogID, sourceID, targetID) => {
-    if (!!gameDialogs && !!sourceID && !!targetID) {
-      const sample = await getEdgeSample();
-      if (!sample) {
-        message.error('Ошибка при создании связи между фразами!');
-        return;
-      }
-      setGameDialogs(curGameDialogs =>
-        produce(curGameDialogs, draft => {
-          const dlg = draft.dialogs?.find(d => d.id === dialogID);
-          if (dlg) {
-            if (!dlg.edges.some(e => (e.source === sourceID) && (e.target === targetID))) {
-              const newEdge = structuredClone(sample);
-              newEdge.id = `e_${sourceID}_${targetID}`;
-              newEdge.source = sourceID;
-              newEdge.target = targetID;
-              dlg.edges.push(newEdge);
-            }
-          }
-        })
-      );
-    }
-  };
-
-  const delPhraseConnection = (dialogID, sourceID, targetID) => {
-    if (!!gameDialogs && !!sourceID && !!targetID) {
-      setGameDialogs(curGameDialogs =>
-        produce(curGameDialogs, draft => {
-          const dlg = draft.dialogs?.find(d => d.id === dialogID);
-          if (dlg) {
-            dlg.edges = dlg.edges?.filter(e => (e.source !== sourceID) || (e.target !== targetID));
-          }
-        })
-      );
-    }
-  };
-
-  const deletePhrasesConnections = (dialogID, edgesIDSet) => {
-    if (!!gameDialogs && !!dialogID && !!edgesIDSet) {
-      setGameDialogs(curGameDialogs =>
-        produce(curGameDialogs, draft => {
-          const dlg = draft.dialogs?.find(d => d.id === dialogID);
-          if (dlg) {
-            dlg.edges = dlg.edges?.filter(e => !edgesIDSet.has(e.id)) || [];
-          }
-        })
-      );
-    }
-  };
-
-  const createPhrase = async (dialogID, position) => {
-    if (!!gameDialogs && !!dialogID) {
-      const sample = await getPhraseSample();
-      if (!sample) {
-        message.error('Ошибка при создании фразы!');
-        return;
-      }
-      let newPhraseID;
-      setGameDialogs(curGameDialogs =>
-        produce(curGameDialogs, draft => {
-          const dlg = draft.dialogs?.find(d => d.id === dialogID);
-          if (dlg) {
-            // Генерация нового ID.
-            const nodeIDs = new Set();
-            const phraseIDs = new Set();
-            dlg.nodes.forEach(n => {
-              nodeIDs.add(n.id);
-              phraseIDs.add(n.data.phrase_id);
-            });
-            let i = 0;
-            while (true) {
-              newPhraseID = `new${i}`;
-              if (nodeIDs.has(newPhraseID) || phraseIDs.has(newPhraseID)) {
-                i += 1;
-              } else {
-                break;
-              }
-            }
-
-            // Вычисление координат.
-            if (!position) {
-              let sumX = 0, sumY = 0;
-              for (const node of dlg.nodes) {
-                if (!!node.position?.x && !!node.position?.y) {
-                  sumX += node.position.x;
-                  sumY += node.position.y;
-                }
-              }
-              position = {
-                x: sumX / dlg.nodes.length,
-                y: sumY / dlg.nodes.length,
-              };
-            }
-
-            // Добавление фразы.
-            const newPhrase = structuredClone(sample);
-            newPhrase.id = newPhraseID;
-            newPhrase.data.phrase_id = newPhraseID;
-            newPhrase.position = { ...position };
-            dlg.nodes.push(newPhrase);
-          }
-        })
-      );
-      return newPhraseID;
-    }
-  };
-
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
       <Space orientation="vertical" size="large" style={{ width: '100%', mapxWidth: 600 }}>
@@ -327,13 +137,6 @@ function App() {
             <ReactFlowProvider>
               <DialogCanvas
                 dialog={gameDialogs.dialogs?.find(dlg => dlg.id === selectedDialogID)}
-                updateDialogPhrase={updateDialogPhrase}
-                updateDialogPhrasesPositions={updateDialogPhrasesPositions}
-                deletePhrases={deletePhrases}
-                addPhraseConnection={addPhraseConnection}
-                delPhraseConnection={delPhraseConnection}
-                deletePhrasesConnections={deletePhrasesConnections}
-                createPhrase={createPhrase}
               />
             </ReactFlowProvider>
           </>

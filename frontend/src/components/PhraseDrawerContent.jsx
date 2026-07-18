@@ -2,18 +2,21 @@ import { memo, useEffect, useState } from 'react';
 import { Input, Select, Space } from 'antd';
 import fastDeepEqual from 'fast-deep-equal';
 
-function PhraseDrawerContent({
-  dialogID,
-  nodesInfo,
-  edges,
-  phraseNode,
-  updateDialogPhrase,
-  addPhraseConnection,
-  delPhraseConnection,
-  deletePhrasesConnections,
-}) {
+import useGameDialogsStore from '@/store/useGameDialogsStore';
 
+function PhraseDrawerContent({ dialogID, nodeID }) {
   const [buffer, setBuffer] = useState(null);
+
+  const phraseNode = useGameDialogsStore(state => state.getNode(dialogID, nodeID));
+  const nodes = useGameDialogsStore(state => state.getNodes(dialogID));
+  const edges = useGameDialogsStore(state => state.getEdges(dialogID));
+
+  const {
+    updatePhrase,
+    addPhraseConnection,
+    delPhraseConnection,
+    deletePhrasesConnections,
+  } = useGameDialogsStore.getState();
 
   // Обновление буфера при открытии новой фразы.
   useEffect(() => {
@@ -25,14 +28,14 @@ function PhraseDrawerContent({
   const checkDiff = () => {
     if (!!dialogID && !!phraseNode && !!buffer) {
       if (!fastDeepEqual(phraseNode, buffer)) {
-        updateDialogPhrase(dialogID, buffer);
+        updatePhrase(dialogID, buffer);
       }
     }
   };
   
-  const onPhraseNextSelect = async (value) => {
+  const onPhraseNextSelect = (value) => {
     if (!!dialogID && !!phraseNode) {
-      await addPhraseConnection(dialogID, phraseNode.id, value);
+      addPhraseConnection(dialogID, phraseNode.id, value);
     }
   };
   
@@ -81,7 +84,7 @@ function PhraseDrawerContent({
               onSelect={onPhraseNextSelect}
               onDeselect={onPhraseNextDeselect}
               onClear={onPhraseNextClear}
-              options={nodesInfo.flatMap(info => (phraseNode.id !== info.nodeID) ? [{ label: info.phraseID, value: info.nodeID }] : [])}
+              options={nodes?.flatMap(node => (nodeID !== node.id) ? [{ label: node.data.phrase_id, value: node.id }] : [])}
             />
           </div>
         </Space>
@@ -91,12 +94,4 @@ function PhraseDrawerContent({
 
 }
 
-export default memo(PhraseDrawerContent, (prevProps, nextProps) => {
-  return (
-    (prevProps.dialogID === nextProps.dialogID)
-    && fastDeepEqual(prevProps.nodesInfo, nextProps.nodesInfo)
-    && fastDeepEqual(prevProps.edges, nextProps.edges)
-    && (prevProps.phraseNode.id === nextProps.phraseNode.id)
-    && fastDeepEqual(prevProps.phraseNode.data, nextProps.phraseNode.data)
-  );
-});
+export default memo(PhraseDrawerContent);

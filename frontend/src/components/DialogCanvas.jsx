@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Space, Drawer, Popconfirm } from 'antd';
-import { DeleteOutlined, DotChartOutlined, PlusOutlined, SortAscendingOutlined } from '@ant-design/icons';
-import { ReactFlow, Controls, Background, useNodesState, useEdgesState, useReactFlow } from '@xyflow/react';
+import { DeleteOutlined, DotChartOutlined, PlusOutlined } from '@ant-design/icons';
+import { ReactFlow, Controls, Background, useReactFlow } from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
 
+import useGameDialogsStore from '@/store/useGameDialogsStore';
 import EditorContext from '@/context/EditorContext';
 import PhraseNode from '@/components/PhraseNode';
 import PhraseDrawerContent from '@/components/PhraseDrawerContent';
@@ -16,31 +17,22 @@ const nodeTypes = {
 
 function DialogCanvas({
   dialog,
-  updateDialogPhrase,
-  updateDialogPhrasesPositions,
-  deletePhrases,
-  addPhraseConnection,
-  delPhraseConnection,
-  deletePhrasesConnections,
-  createPhrase,
 }) {
   const [dialogID, setDialogID] = useState(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const rfInstance = useReactFlow();
   const [selectedNodeID, setSelectedNodeID] = useState(null);
-  const { fitView, screenToFlowPosition } = useReactFlow();
 
-  // Дубликаты ID фраз.
-  const duplicatePhraseIDs = useMemo(() => {
-    const countsMap = nodes.reduce((acc, node) => {
-      const phraseID = node?.data?.phrase_id;
-      if (phraseID) {
-        acc.set(phraseID, (acc.get(phraseID) || 0) + 1);
-      }
-      return acc;
-    }, new Map());
-    return Array.from(countsMap).flatMap(([phrID, cnt]) => (cnt > 1) ? [phrID] : []);
-  }, [nodes]);
+  const {
+    getNode,
+    getNodes,
+    getEdges,
+    updatePhrasesPositions,
+    deletePhrases,
+    addPhraseConnection,
+    delPhraseConnection,
+    deletePhrasesConnections,
+    createPhrase,
+  } = useGameDialogsStore.getState();
 
   // Функция для автоматического просчёта позиций вершин для данного графа диалога.
   const getLayoutedNodes = (dNodes, dEdges) => {
@@ -67,12 +59,13 @@ function DialogCanvas({
     if (dialog) {
       const newPositionsMap = new Map();
       dNodes.forEach(phr => newPositionsMap.set(phr.id, phr.position));
-      updateDialogPhrasesPositions(dialog.id, newPositionsMap);
+      updatePhrasesPositions(dialog.id, newPositionsMap);
     }
   };
 
   // Обновление холста при смене данных о диалоге (в т.ч. при выборе нового).
   useEffect(() => {
+    if (!rfInstance) return;
     if (dialog) {
       const isNewDialog = (dialog.id !== dialogID);
 
@@ -88,26 +81,26 @@ function DialogCanvas({
         const noPositionData = dNodes.every(n => (n.position.x == 0) && (n.position.y == 0));
         if (noPositionData) {
           const dNodesLayouted = getLayoutedNodes(dNodes, dEdges);
-          setNodes(dNodesLayouted);
-          setEdges(dEdges);
+          rfInstance.setNodes(dNodesLayouted);
+          rfInstance.setEdges(dEdges);
           savePositions(dNodesLayouted);
         } else {
-          setNodes(dNodes);
-          setEdges(dEdges);
+          rfInstance.setNodes(dNodes);
+          rfInstance.setEdges(dEdges);
         }
       } else {
-        setNodes(dNodes);
-        setEdges(dEdges);
+        rfInstance.setNodes(dNodes);
+        rfInstance.setEdges(dEdges);
       }
 
       // Центрирование.
       if (isNewDialog) {
-        fitView();
+        rfInstance.fitView();
       }
     } else {
       setDialogID(null);
-      setNodes([]);
-      setEdges([]);
+      rfInstance.setNodes([]);
+      rfInstance.setEdges([]);
       setSelectedNodeID(null);
     }
   }, [dialog]);
@@ -149,20 +142,20 @@ function DialogCanvas({
   };
 
   // Колбэк создания связи между вершинами через интерфейс ReactFlow.
-  const onConnect = async ({ source, target }) => {
+  const onConnect = ({ source, target }) => {
     if (dialogID) {
-      await addPhraseConnection(dialogID, source, target);
+      addPhraseConnection(dialogID, source, target);
     }
   };
 
   // Колбэк обновления связи между вершинами через интерфейс ReactFlow.
-  const onReconnect = async (oldEdge, newConnection) => {
+  const onReconnect = (oldEdge, newConnection) => {
     if (dialogID) {
       const { source: oldSource, target: oldTarget } = oldEdge;
       const { source: newSource, target: newTarget } = newConnection;
       if ((oldSource !== newSource) || (oldTarget !== newTarget)) {
         delPhraseConnection(dialogID, oldSource, oldTarget);
-        await addPhraseConnection(dialogID, newSource, newTarget);
+        addPhraseConnection(dialogID, newSource, newTarget);
       }
     }
   };
@@ -179,13 +172,14 @@ function DialogCanvas({
     }
   };
 
-  const onAddButtonClick = async () => {
+  const onAddButtonClick = () => {
+    if (!rfInstance) return;
     if (dialogID) {
       // Вычисление позиции.
       let position;
       if (selectedNodeID) {
         // Если есть выбранная фраза, то размещаем новую фразу чуть ниже.
-        const selectedNode = nodes.find(n => n.id === selectedNodeID);
+        const selectedNode = getNode(dialogID, selectedNodeID);
         position = {
           x: selectedNode?.position?.x || 0,
           y: (selectedNode?.position?.y || 0) + 48,
@@ -195,7 +189,7 @@ function DialogCanvas({
         const flowContainer = document.querySelector('.react-flow');
         if (flowContainer) {
           const rect = flowContainer.getBoundingClientRect();
-          position = screenToFlowPosition({
+          position = rfInstance.screenToFlowPosition({
             x: rect.left + rect.width / 2,
             y: rect.top + rect.height / 2,
           });
@@ -203,7 +197,7 @@ function DialogCanvas({
       }
 
       // Создание фразы.
-      const newPhraseID = await createPhrase(dialogID, position);
+      const newPhraseID = createPhrase(dialogID, position);
 
       // Переключение на новую фразу.
       setSelectedNodeID(newPhraseID);
@@ -211,10 +205,11 @@ function DialogCanvas({
   };
 
   const onUpdPositionsClick = () => {
-    const nodesLayouted = getLayoutedNodes(nodes, edges);
-    setNodes(nodesLayouted);
+    if (!rfInstance || !dialogID) return;
+    const nodesLayouted = getLayoutedNodes(getNodes(dialogID), getEdges(dialogID));
+    rfInstance.setNodes(nodesLayouted);
     savePositions(nodesLayouted);
-    fitView();
+    rfInstance.fitView();
   };
 
   return (
@@ -223,18 +218,10 @@ function DialogCanvas({
         {dialogID && (
           <>
             <div style={{ flexGrow: 1, border: '1px solid #d9d9d9', borderRadius: '8px', backgroundColor: '#fff', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-              <EditorContext.Provider
-                value={{
-                  selectedNodeID,
-                  afterSelectedNodeIDs: edges.flatMap(e => (e.source === selectedNodeID) ? [e.target] : []),
-                  duplicatePhraseIDs,
-                }}
-              >
+              <EditorContext.Provider value={{ dialogID, selectedNodeID }}>
                 <ReactFlow
-                  nodes={nodes}
-                  edges={edges}
-                  onNodesChange={onNodesChange} // Разрешает перетаскивание блоков мышкой
-                  onEdgesChange={onEdgesChange} // Разрешает изменять связи
+                  defaultNodes={[]}
+                  defaultEdges={[]}
                   onNodeClick={onNodeClick}
                   onNodeDragStart={onNodeDragStart}
                   onNodeDragStop={onNodeDragStop}
@@ -304,16 +291,10 @@ function DialogCanvas({
           </Space>
         }
       >
-        {!!selectedNodeID && (
+        {!!rfInstance && !!selectedNodeID && (
           <PhraseDrawerContent
             dialogID={dialogID}
-            nodesInfo={nodes.map(n => ({nodeID: n.id, phraseID: n.data?.phrase_id}))}
-            edges={edges}
-            phraseNode={nodes.find(phr => phr.id === selectedNodeID)}
-            updateDialogPhrase={updateDialogPhrase}
-            addPhraseConnection={addPhraseConnection}
-            delPhraseConnection={delPhraseConnection}
-            deletePhrasesConnections={deletePhrasesConnections}
+            nodeID={selectedNodeID}
           />
         )}
       </Drawer>

@@ -1,7 +1,8 @@
-import { useContext } from 'react';
+import { memo, useContext } from 'react';
 import { Card, Tooltip, Typography } from 'antd';
 import { Handle, Position } from '@xyflow/react';
 
+import useGameDialogsStore from '@/store/useGameDialogsStore';
 import EditorContext from '@/context/EditorContext';
 
 const { Text } = Typography;
@@ -18,19 +19,21 @@ function PhraseNode({ id, data, dragging, selected }) {
     phrase_action,
   } = data;
 
-  const { selectedNodeID, afterSelectedNodeIDs, duplicatePhraseIDs } = useContext(EditorContext);
+  const { dialogID, selectedNodeID } = useContext(EditorContext);
+
+  const isDuplicateID = useGameDialogsStore((state) =>
+    state.getDuplicatePhraseIDs(dialogID).includes(phrase_id)
+  );
+  const isAfterSelected = useGameDialogsStore((state) =>
+    state.getAfterNodeIDsCache(dialogID, selectedNodeID).includes(id)
+  );
 
   const isSelectedReactFlow = !!selected;
   const isSelectedCustom = (id === selectedNodeID);
-  const isAfterSelected = !!afterSelectedNodeIDs.find(nID => id === nID);
-  const isDuplicateID = !!duplicatePhraseIDs.find(phrID => phrase_id === phrID);
   const hasText = (phrase_text && (phrase_text.trim().length > 0));
 
   // Если true, то текст фразы отображается не на карточке, а в подсказке.
   const compactCard = true;
-
-  // // TODO: optimize
-  // if (id === "0") console.log("PhraseNode");
 
   const getBackgroundColor = () => {
     if (isSelectedCustom) return '#cccccc';
@@ -123,4 +126,4 @@ function PhraseNode({ id, data, dragging, selected }) {
 
 }
 
-export default PhraseNode;
+export default memo(PhraseNode);
