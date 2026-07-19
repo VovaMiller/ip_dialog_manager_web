@@ -13,13 +13,17 @@ const { Title, Text } = Typography;
 
 function App() {
   const [loading, setLoading] = useState(false);
-  const [selectedDialogID, setSelectedDialogID] = useState(null);
   const loadPhraseSample = useSampleStore(state => state.loadPhraseSample);
   const loadEdgeSample = useSampleStore(state => state.loadEdgeSample);
-  const { gameDialogs, setGameDialogs } = useGameDialogsStore(
+  const {
+    gameDialogs, setGameDialogs,
+    selectedDialogID, setSelectedDialogID
+  } = useGameDialogsStore(
     useShallow((state) => ({
       gameDialogs: state.gameDialogs,
       setGameDialogs: state.setGameDialogs,
+      selectedDialogID: state.selectedDialogID,
+      setSelectedDialogID: state.setSelectedDialogID,
     }))
   );
 

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { Button, Space, Drawer, Popconfirm } from 'antd';
 import { DeleteOutlined, DotChartOutlined, PlusOutlined } from '@ant-design/icons';
 import { ReactFlow, Controls, Background, useReactFlow } from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
 
 import useGameDialogsStore from '@/store/useGameDialogsStore';
-import EditorContext from '@/context/EditorContext';
 import PhraseNode from '@/components/PhraseNode';
 import PhraseDrawerContent from '@/components/PhraseDrawerContent';
 
@@ -20,8 +20,13 @@ function DialogCanvas({
 }) {
   const [dialogID, setDialogID] = useState(null);
   const rfInstance = useReactFlow();
-  const [selectedNodeID, setSelectedNodeID] = useState(null);
 
+  const { selectedNodeID, setSelectedNodeID } = useGameDialogsStore(
+    useShallow((state) => ({
+      selectedNodeID: state.selectedNodeID,
+      setSelectedNodeID: state.setSelectedNodeID,
+    }))
+  );
   const {
     getNode,
     getNodes,
@@ -218,30 +223,28 @@ function DialogCanvas({
         {dialogID && (
           <>
             <div style={{ flexGrow: 1, border: '1px solid #d9d9d9', borderRadius: '8px', backgroundColor: '#fff', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-              <EditorContext.Provider value={{ dialogID, selectedNodeID }}>
-                <ReactFlow
-                  defaultNodes={[]}
-                  defaultEdges={[]}
-                  onNodeClick={onNodeClick}
-                  onNodeDragStart={onNodeDragStart}
-                  onNodeDragStop={onNodeDragStop}
-                  onDelete={onDelete}
-                  onConnect={onConnect}
-                  onReconnect={onReconnect}
-                  edgesReconnectable={true}
-                  zoomOnScroll={false}
-                  preventScrolling={false}
-                  nodeTypes={nodeTypes}
-                  connectionLineType="straight"
-                  deleteKeyCode={['Delete', 'Backspace']}
-                  fitView // Автоматически центрирует камеру по графу при загрузке
-                >
-                  {/* Сетка на заднем фоне холста */}
-                  <Background color="#ccc" gap={16} size={1} />
-                  {/* Кнопки зума (+ / -) в левом углу */}
-                  <Controls />
-                </ReactFlow>
-              </EditorContext.Provider>
+              <ReactFlow
+                defaultNodes={[]}
+                defaultEdges={[]}
+                onNodeClick={onNodeClick}
+                onNodeDragStart={onNodeDragStart}
+                onNodeDragStop={onNodeDragStop}
+                onDelete={onDelete}
+                onConnect={onConnect}
+                onReconnect={onReconnect}
+                edgesReconnectable={true}
+                zoomOnScroll={false}
+                preventScrolling={false}
+                nodeTypes={nodeTypes}
+                connectionLineType="straight"
+                deleteKeyCode={['Delete', 'Backspace']}
+                fitView // Автоматически центрирует камеру по графу при загрузке
+              >
+                {/* Сетка на заднем фоне холста */}
+                <Background color="#ccc" gap={16} size={1} />
+                {/* Кнопки зума (+ / -) в левом углу */}
+                <Controls />
+              </ReactFlow>
             </div>
 
             <Space size="middle" style={{ display: 'flex', justifyContent: 'flex-start', marginTop: 10 }}>

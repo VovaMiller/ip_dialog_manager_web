@@ -1,9 +1,8 @@
-import { memo, useContext } from 'react';
+import { memo } from 'react';
 import { Card, Tooltip, Typography } from 'antd';
 import { Handle, Position } from '@xyflow/react';
 
 import useGameDialogsStore from '@/store/useGameDialogsStore';
-import EditorContext from '@/context/EditorContext';
 
 const { Text } = Typography;
 
@@ -18,18 +17,16 @@ function PhraseNode({ id, data, dragging, selected }) {
     phrase_give_info,
     phrase_action,
   } = data;
-
-  const { dialogID, selectedNodeID } = useContext(EditorContext);
+  // console.log("PhraseNode", id);  // TODO: optimize
 
   const isDuplicateID = useGameDialogsStore((state) =>
-    state.getDuplicatePhraseIDs(dialogID).includes(phrase_id)
+    state.getDuplicatePhraseIDs(state.selectedDialogID).includes(phrase_id)
   );
   const isAfterSelected = useGameDialogsStore((state) =>
-    state.getAfterNodeIDsCache(dialogID, selectedNodeID).includes(id)
+    state.getAfterNodeIDsCache(state.selectedDialogID, state.selectedNodeID).includes(id)
   );
-
+  const isSelectedCustom = useGameDialogsStore((state) => (id === state.selectedNodeID));
   const isSelectedReactFlow = !!selected;
-  const isSelectedCustom = (id === selectedNodeID);
   const hasText = (phrase_text && (phrase_text.trim().length > 0));
 
   // Если true, то текст фразы отображается не на карточке, а в подсказке.
