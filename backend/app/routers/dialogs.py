@@ -13,37 +13,31 @@ def get_all_dialogs():
     }
 
 
-class PhraseData(BaseModel):
-    phrase_id: str
-    phrase_text: str
-    phrase_has_info: list[str]
-    phrase_dont_has_info: list[str]
-    phrase_precondition: list[str]
-    phrase_give_info: list[str]
-    phrase_action: list[str]
-
-class ReactFlowNode(BaseModel):
+class FrontendNode(BaseModel):
     id: str
-    position: dict[str, int]
-    data: PhraseData
-    type: str
+    posX: int
+    posY: int
+    phraseId: str
+    phraseText: str
+    phraseHasInfo: list[str]
+    phraseDontHasInfo: list[str]
+    phrasePrecondition: list[str]
+    phraseGiveInfo: list[str]
+    phraseAction: list[str]
 
-class ReactFlowEdge(BaseModel):
+class FrontendEdge(BaseModel):
     id: str
-    type: str
     source: str
     target: str
-    animated: bool
-    markerEnd: dict[str, str | int]
     
 class DialogModel(BaseModel):
     id: str
-    nodes: list[ReactFlowNode]
-    edges: list[ReactFlowEdge]
+    nodes: dict[str, FrontendNode]
+    edges: dict[str, FrontendEdge]
 
 class UploadResponseData(BaseModel):
     filename: str
-    dialogs: list[DialogModel]
+    dialogs: dict[str, DialogModel]
 
 class UploadResponse(BaseModel):
     status: str
@@ -88,13 +82,14 @@ async def upload_dialog_xml(file: UploadFile = File(...)):
 
     # Парсинг
     game_dialogs = GameDialogs(raw_xml)
-    response_dialogs = []
-    for dlg in game_dialogs.dialogs.values():
-        response_dialogs.append({
+    response_dialogs = {
+        dlg._id: {
             "id": dlg._id,
-            "nodes": dlg.get_react_flow_nodes(),
-            "edges": dlg.get_react_flow_edges(),
-        })
+            "nodes": dlg.get_frontend_nodes(),
+            "edges": dlg.get_frontend_edges(),
+        }
+        for dlg in game_dialogs.dialogs.values()
+    }
 
     return {
         "status": "success",
@@ -107,7 +102,7 @@ async def upload_dialog_xml(file: UploadFile = File(...)):
 
 class PhraseSampleResponse(BaseModel):
     status: str
-    data: ReactFlowNode
+    data: FrontendNode
 
 @router.get(
     "/phrase-sample",
@@ -117,21 +112,5 @@ class PhraseSampleResponse(BaseModel):
 def get_phrase_sample():
     return {
         "status": "success",
-        "data": Dialog.build_react_flow_node(),
-    }
-
-
-class EdgeSampleResponse(BaseModel):
-    status: str
-    data: ReactFlowEdge
-
-@router.get(
-    "/edge-sample",
-    summary="Получить пустой шаблон ребра графа диалога",
-    response_model=EdgeSampleResponse,
-)
-def get_edge_sample():
-    return {
-        "status": "success",
-        "data": Dialog.build_react_flow_edge(),
+        "data": Dialog.build_frontend_node(),
     }

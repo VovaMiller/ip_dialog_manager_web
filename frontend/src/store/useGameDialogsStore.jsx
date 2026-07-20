@@ -27,24 +27,60 @@ const useGameDialogsStore = create(
       },
 
       getNode: (dialogID, nodeID) => {
-        return get().gameDialogs?.dialogs?.find(d => d.id === dialogID)?.nodes?.find(n => n.id === nodeID);
+        return get().gameDialogs?.dialogs?.[dialogID]?.nodes?.[nodeID];
       },
       getNodes: (dialogID) => {
-        return get().gameDialogs?.dialogs?.find(d => d.id === dialogID)?.nodes;
+        return get().gameDialogs?.dialogs?.[dialogID]?.nodes;
+      },
+      getEdge: (dialogID, edgeID) => {
+        return get().gameDialogs?.dialogs?.[dialogID]?.edges?.[edgeID];
       },
       getEdges: (dialogID) => {
-        return get().gameDialogs?.dialogs?.find(d => d.id === dialogID)?.edges;
+        return get().gameDialogs?.dialogs?.[dialogID]?.edges;
+      },
+
+      getReactFlowNodes: (dialogID) => {
+        return Object.keys(get().getNodes(dialogID) || {}).map(nodeId => {
+          const node = get().getNode(dialogID, nodeId);
+          return {
+            id: nodeId,
+            position: {
+                x: node?.posX || 0,
+                y: node?.posY || 0,
+            },
+            type: 'phraseNode',
+          };
+        });
+      },
+      getReactFlowEdges: (dialogID) => {
+        return Object.keys(get().getEdges(dialogID) || {}).map(edgeId => {
+          const edge = get().getEdge(dialogID, edgeId);
+          return {
+            id: edgeId,
+            type: 'straight',
+            source: edge?.source,
+            target: edge?.target,
+            animated: false,
+            markerEnd: {
+                type: 'arrow',
+                // color: '#1890ff',
+                width: 20,
+                height: 20,
+            },
+          };
+        });
       },
 
       updatePhrasesPositions: (dialogID, newPositionsMap) => {
         if (!!dialogID && !!newPositionsMap) {
           set(state => {
-            const dlg = state.gameDialogs?.dialogs?.find(d => d.id === dialogID);
+            const dlg = state.gameDialogs?.dialogs?.[dialogID];
             if (dlg) {
               for (const [phrID, newPosition] of newPositionsMap) {
-                const phr = dlg.nodes?.find(n => n.id === phrID);
+                const phr = dlg.nodes?.[phrID];
                 if (phr) {
-                  phr.position = {...newPosition};
+                  phr.posX = newPosition.x || 0;
+                  phr.posY = newPosition.y || 0;
                 }
               }
             }
@@ -55,12 +91,9 @@ const useGameDialogsStore = create(
       updatePhrase: (dialogID, phrase) => {
         if (!!dialogID && !!phrase) {
           set(state => {
-            const dlg = state.gameDialogs?.dialogs?.find(d => d.id === dialogID);
-            if (dlg) {
-              const idx = dlg.nodes?.findIndex(n => n.id === phrase.id);
-              if (idx >= 0) {
-                dlg.nodes[idx] = phrase;
-              }
+            const dlg = state.gameDialogs?.dialogs?.[dialogID];
+            if (!!dlg && !!dlg.nodes) {
+              dlg.nodes[phrase.id] = phrase;
             }
           });
         }
@@ -69,10 +102,22 @@ const useGameDialogsStore = create(
       deletePhrases: (dialogID, nodesIDSet) => {
         if (!!dialogID && !!nodesIDSet) {
           set(state => {
-            const dlg = state.gameDialogs?.dialogs?.find(d => d.id === dialogID);
+            const dlg = state.gameDialogs?.dialogs?.[dialogID];
             if (dlg) {
-              dlg.edges = dlg.edges?.filter(e => !nodesIDSet.has(e.target) && !nodesIDSet.has(e.source)) || [];
-              dlg.nodes = dlg.nodes?.filter(n => !nodesIDSet.has(n.id)) || [];
+              if (dlg.edges) {
+                Object.keys(dlg.edges).forEach(edgeId => {
+                  if (nodesIDSet.has(dlg.edges[edgeId].target) || nodesIDSet.has(dlg.edges[edgeId].source)) {
+                    delete dlg.edges[edgeId];
+                  }
+                });
+              }
+              if (dlg.nodes) {
+                Object.keys(dlg.nodes).forEach(nodeId => {
+                  if (nodesIDSet.has(nodeId)) {
+                    delete dlg.nodes[nodeId];
+                  }
+                });
+              }
             }
           });
         }
@@ -80,20 +125,19 @@ const useGameDialogsStore = create(
 
       addPhraseConnection: (dialogID, sourceID, targetID) => {
         if (!!sourceID && !!targetID) {
-          const sample = useSampleStore.getState().edgeSample;
-          if (!sample) {
-            message.error('Ошибка при создании связи между фразами!');
-            return;
-          }
           set(state => {
-            const dlg = state.gameDialogs?.dialogs?.find(d => d.id === dialogID);
-            if (dlg) {
-              if (!dlg.edges.some(e => (e.source === sourceID) && (e.target === targetID))) {
-                const newEdge = structuredClone(sample);
-                newEdge.id = `e_${sourceID}_${targetID}`;
-                newEdge.source = sourceID;
-                newEdge.target = targetID;
-                dlg.edges.push(newEdge);
+            const dlgEdges = state.gameDialogs?.dialogs?.[dialogID]?.edges;
+            if (dlgEdges) {
+              const connectionExists = Object.keys(dlgEdges).some(
+                edgeId => (dlgEdges[edgeId].source === sourceID) && (dlgEdges[edgeId].target === targetID)
+              );
+              if (!connectionExists) {
+                const newEdgeId = `e_${sourceID}_${targetID}`;
+                dlgEdges[newEdgeId] = {
+                  id: newEdgeId,
+                  source: sourceID,
+                  target: targetID,
+                };
               }
             }
           });
@@ -103,9 +147,13 @@ const useGameDialogsStore = create(
       delPhraseConnection: (dialogID, sourceID, targetID) => {
         if (!!dialogID && !!sourceID && !!targetID) {
           set(state => {
-            const dlg = state.gameDialogs?.dialogs?.find(d => d.id === dialogID);
-            if (dlg) {
-              dlg.edges = dlg.edges?.filter(e => (e.source !== sourceID) || (e.target !== targetID));
+            const dlgEdges = state.gameDialogs?.dialogs?.[dialogID]?.edges;
+            if (dlgEdges) {
+              Object.keys(dlgEdges).forEach(edgeId => {
+                if ((dlgEdges[edgeId].source === sourceID) && (dlgEdges[edgeId].target === targetID)) {
+                  delete dlgEdges[edgeId];
+                }
+              });
             }
           });
         }
@@ -114,9 +162,13 @@ const useGameDialogsStore = create(
       deletePhrasesConnections: (dialogID, edgesIDSet) => {
         if (!!dialogID && !!edgesIDSet) {
           set(state => {
-            const dlg = state.gameDialogs?.dialogs?.find(d => d.id === dialogID);
-            if (dlg) {
-              dlg.edges = dlg.edges?.filter(e => !edgesIDSet.has(e.id)) || [];
+            const dlgEdges = state.gameDialogs?.dialogs?.[dialogID]?.edges;
+            if (dlgEdges) {
+              Object.keys(dlgEdges).forEach(edgeId => {
+                if (edgesIDSet.has(edgeId)) {
+                  delete dlgEdges[edgeId];
+                }
+              });
             }
           });
         }
@@ -133,14 +185,14 @@ const useGameDialogsStore = create(
           }
           let newPhraseID = null;
           set(state => {
-            const dlg = state.gameDialogs?.dialogs?.find(d => d.id === dialogID);
+            const dlg = state.gameDialogs?.dialogs?.[dialogID];
             if (dlg) {
               // Генерация нового ID.
               const nodeIDs = new Set();
               const phraseIDs = new Set();
-              dlg.nodes.forEach(n => {
-                nodeIDs.add(n.id);
-                phraseIDs.add(n.data.phrase_id);
+              Object.keys(dlg.nodes).forEach(nodeId => {
+                nodeIDs.add(nodeId);
+                phraseIDs.add(dlg.nodes[nodeId].phraseId);
               });
               let i = 0;
               while (true) {
@@ -155,31 +207,32 @@ const useGameDialogsStore = create(
               // Вычисление координат.
               if (!position) {
                 let sumX = 0, sumY = 0;
-                for (const node of dlg.nodes) {
-                  if (!!node.position?.x && !!node.position?.y) {
-                    sumX += node.position.x;
-                    sumY += node.position.y;
-                  }
-                }
+                let nodesCnt = 0;
+                Object.keys(dlg.nodes).forEach(nodeId => {
+                  sumX += dlg.nodes[nodeId].posX || 0;
+                  sumY += dlg.nodes[nodeId].posY || 0;
+                  nodesCnt += 1;
+                });
                 position = {
-                  x: sumX / dlg.nodes.length,
-                  y: sumY / dlg.nodes.length,
+                  x: sumX / nodesCnt,
+                  y: sumY / nodesCnt,
                 };
               }
 
               // Добавление фразы.
               const newPhrase = structuredClone(sample);
               newPhrase.id = newPhraseID;
-              newPhrase.data.phrase_id = newPhraseID;
-              newPhrase.position = { ...position };
-              dlg.nodes.push(newPhrase);
+              newPhrase.posX = position.x || 0;
+              newPhrase.posY = position.y || 0;
+              newPhrase.phraseId = newPhraseID;
+              dlg.nodes[newPhraseID] = newPhrase;
             }
           });
           return newPhraseID;
         }
       },
 
-      // Получить массив дубликатов пользовательских ID (node.data.phrase_id).
+      // Получить массив дубликатов пользовательских ID (node.phraseId).
       // Результат вычисления кэшируется.
       getDuplicatePhraseIDs: (dialogID) => {
         if (!dialogID) {
@@ -188,12 +241,12 @@ const useGameDialogsStore = create(
         if (duplicatePhraseIDsCache[dialogID]) {
           return duplicatePhraseIDsCache[dialogID];
         }
-        const dialogNodes = get().gameDialogs?.dialogs?.find(d => d.id === dialogID)?.nodes;
+        const dialogNodes = get().gameDialogs?.dialogs?.[dialogID]?.nodes;
         if (!dialogNodes) {
           return [];
         }
-        const countsMap = dialogNodes.reduce((acc, node) => {
-          const phraseID = node?.data?.phrase_id;
+        const countsMap = Object.keys(dialogNodes).reduce((acc, nodeId) => {
+          const phraseID = dialogNodes[nodeId].phraseId;
           if (phraseID) {
             acc.set(phraseID, (acc.get(phraseID) || 0) + 1);
           }
@@ -203,7 +256,7 @@ const useGameDialogsStore = create(
         return duplicatePhraseIDsCache[dialogID];
       },
 
-      // Получить массив ID вершин, следующих после указанной (node.id).
+      // Получить массив ID вершин (node.id), следующих после указанной.
       // Результат вычисления кэшируется.
       getAfterNodeIDsCache: (dialogID, nodeID) => {
         if (!dialogID || !nodeID) {
@@ -212,14 +265,16 @@ const useGameDialogsStore = create(
         if (afterNodeIDsCache[dialogID]?.[nodeID]) {
           return afterNodeIDsCache[dialogID][nodeID];
         }
-        const dialogEdges = get().gameDialogs?.dialogs?.find(d => d.id === dialogID)?.edges;
+        const dialogEdges = get().gameDialogs?.dialogs?.[dialogID]?.edges;
         if (!dialogEdges) {
           return [];
         }
         if (!afterNodeIDsCache[dialogID]) {
           afterNodeIDsCache[dialogID] = {};
         }
-        afterNodeIDsCache[dialogID][nodeID] = dialogEdges.flatMap(e => (e.source === nodeID) ? [e.target] : []);
+        afterNodeIDsCache[dialogID][nodeID] = Object.keys(dialogEdges).flatMap(
+          edgeId => (dialogEdges[edgeId].source === nodeID) ? [dialogEdges[edgeId].target] : []
+        );
         return afterNodeIDsCache[dialogID][nodeID];
       },
 

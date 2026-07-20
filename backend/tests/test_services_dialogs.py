@@ -794,7 +794,6 @@ def test_game_dialogs_constructor_complete_dialog_check():
 
 # ----------------------------------------------------------------
 
-# TODO: test Dialog.build_react_flow_node
-# TODO: test Dialog.build_react_flow_edge
-# TODO: test Dialog.get_react_flow_nodes
-# TODO: test Dialog.get_react_flow_edges
+# TODO: test Dialog.build_frontend_node
+# TODO: test Dialog.get_frontend_nodes
+# TODO: test Dialog.get_frontend_edges

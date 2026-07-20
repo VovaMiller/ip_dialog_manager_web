@@ -6,28 +6,18 @@ import useGameDialogsStore from '@/store/useGameDialogsStore';
 
 const { Text } = Typography;
 
-function PhraseNode({ id, data, dragging, selected }) {
-
-  const {
-    phrase_id,
-    phrase_text,
-    phrase_has_info,
-    phrase_dont_has_info,
-    phrase_precondition,
-    phrase_give_info,
-    phrase_action,
-  } = data;
-  // console.log("PhraseNode", id);  // TODO: optimize
-
+function PhraseNode({ id, dragging, selected }) {
+  const phraseId = useGameDialogsStore((state) => state.getNode(state.selectedDialogID, id)?.phraseId);
+  const phraseText = useGameDialogsStore((state) => state.getNode(state.selectedDialogID, id)?.phraseText || "");
   const isDuplicateID = useGameDialogsStore((state) =>
-    state.getDuplicatePhraseIDs(state.selectedDialogID).includes(phrase_id)
+    state.getDuplicatePhraseIDs(state.selectedDialogID).includes(state.getNode(state.selectedDialogID, id)?.phraseId)
   );
   const isAfterSelected = useGameDialogsStore((state) =>
     state.getAfterNodeIDsCache(state.selectedDialogID, state.selectedNodeID).includes(id)
   );
   const isSelectedCustom = useGameDialogsStore((state) => (id === state.selectedNodeID));
   const isSelectedReactFlow = !!selected;
-  const hasText = (phrase_text && (phrase_text.trim().length > 0));
+  const hasText = (phraseText && (phraseText.trim().length > 0));
 
   // Если true, то текст фразы отображается не на карточке, а в подсказке.
   const compactCard = true;
@@ -78,7 +68,7 @@ function PhraseNode({ id, data, dragging, selected }) {
       `}</style>
 
       <Tooltip
-        title={<div style={{ whiteSpace: 'pre-line' }}>{phrase_text}</div>}
+        title={<div style={{ whiteSpace: 'pre-line' }}>{phraseText}</div>}
         placement="left"
         open={(hasText && compactCard && !dragging) ? undefined : false}
         mouseEnterDelay={0.3}
@@ -86,7 +76,7 @@ function PhraseNode({ id, data, dragging, selected }) {
       >
         <Card
           size="small"
-          title={phrase_id}
+          title={phraseId}
           className={(hasText && !compactCard) ? '' : 'empty-node'}
           style={{
             width: '100%',
@@ -102,10 +92,10 @@ function PhraseNode({ id, data, dragging, selected }) {
         >
           {(hasText && !compactCard) ? (
             <Text
-              ellipsis={{ tooltip: phrase_text }}
+              ellipsis={{ tooltip: phraseText }}
               style={{ fontSize: 12 }}
             >
-              {phrase_text}
+              {phraseText}
             </Text>
           ) : null}
         </Card>

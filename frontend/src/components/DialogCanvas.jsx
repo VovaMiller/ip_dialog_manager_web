@@ -29,8 +29,8 @@ function DialogCanvas({
   );
   const {
     getNode,
-    getNodes,
-    getEdges,
+    getReactFlowNodes,
+    getReactFlowEdges,
     updatePhrasesPositions,
     deletePhrases,
     addPhraseConnection,
@@ -40,6 +40,7 @@ function DialogCanvas({
   } = useGameDialogsStore.getState();
 
   // Функция для автоматического просчёта позиций вершин для данного графа диалога.
+  // На входе и выходе вершины/рёбра в формате React Flow.
   const getLayoutedNodes = (dNodes, dEdges) => {
     const g = new dagre.graphlib.Graph();
     g.setGraph({ rankdir: 'TB' });
@@ -63,7 +64,7 @@ function DialogCanvas({
   const savePositions = (dNodes) => {
     if (dialog) {
       const newPositionsMap = new Map();
-      dNodes.forEach(phr => newPositionsMap.set(phr.id, phr.position));
+      dNodes.forEach(node => newPositionsMap.set(node.id, node.position));
       updatePhrasesPositions(dialog.id, newPositionsMap);
     }
   };
@@ -81,21 +82,22 @@ function DialogCanvas({
       }
 
       // Обновление графа.
-      const {nodes: dNodes, edges: dEdges} = dialog;
+      const nodes = getReactFlowNodes(dialog.id);
+      const edges = getReactFlowEdges(dialog.id);
       if (isNewDialog) {
-        const noPositionData = dNodes.every(n => (n.position.x == 0) && (n.position.y == 0));
+        const noPositionData = nodes.every(n => (n.position.x == 0) && (n.position.y == 0));
         if (noPositionData) {
-          const dNodesLayouted = getLayoutedNodes(dNodes, dEdges);
-          rfInstance.setNodes(dNodesLayouted);
-          rfInstance.setEdges(dEdges);
-          savePositions(dNodesLayouted);
+          const nodesLayouted = getLayoutedNodes(nodes, edges);
+          rfInstance.setNodes(nodesLayouted);
+          rfInstance.setEdges(edges);
+          savePositions(nodesLayouted);
         } else {
-          rfInstance.setNodes(dNodes);
-          rfInstance.setEdges(dEdges);
+          rfInstance.setNodes(nodes);
+          rfInstance.setEdges(edges);
         }
       } else {
-        rfInstance.setNodes(dNodes);
-        rfInstance.setEdges(dEdges);
+        rfInstance.setNodes(nodes);
+        rfInstance.setEdges(edges);
       }
 
       // Центрирование.
@@ -186,8 +188,8 @@ function DialogCanvas({
         // Если есть выбранная фраза, то размещаем новую фразу чуть ниже.
         const selectedNode = getNode(dialogID, selectedNodeID);
         position = {
-          x: selectedNode?.position?.x || 0,
-          y: (selectedNode?.position?.y || 0) + 48,
+          x: selectedNode?.posX || 0,
+          y: (selectedNode?.posY || 0) + 48,
         }
       } else {
         // Если нет выбранной фразы, то размещаем верхний левый угол карточки по центру холста.
@@ -211,7 +213,7 @@ function DialogCanvas({
 
   const onUpdPositionsClick = () => {
     if (!rfInstance || !dialogID) return;
-    const nodesLayouted = getLayoutedNodes(getNodes(dialogID), getEdges(dialogID));
+    const nodesLayouted = getLayoutedNodes(rfInstance.getNodes(), rfInstance.getEdges());
     rfInstance.setNodes(nodesLayouted);
     savePositions(nodesLayouted);
     rfInstance.fitView();

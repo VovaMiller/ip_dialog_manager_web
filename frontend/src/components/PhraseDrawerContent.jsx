@@ -47,10 +47,17 @@ function PhraseDrawerContent({ dialogID, nodeID }) {
   
   const onPhraseNextClear = () => {
     if (!!dialogID && !!phraseNode) {
-      const edgesSet = new Set(edges.filter(e => e.source === phraseNode.id).map(e => e.id));
+      const edgesSet = new Set(Object.keys(edges || {}).flatMap(edgeId => (edges[edgeId].source === phraseNode.id) ? [edgeId] : []));
       deletePhrasesConnections(dialogID, edgesSet);
     }
   };
+
+  const nextPhrasesValues = Object.keys(edges || {}).flatMap(
+    edgeId => (edges[edgeId].source === phraseNode.id) ? [edges[edgeId].target] : []
+  );
+  const nextPhrasesOptions = Object.keys(nodes || {})?.flatMap(
+    nextNodeId => (nodeID !== nextNodeId) ? [{ label: nodes[nextNodeId].phraseId, value: nextNodeId }] : []
+  );
 
   return (
     <>
@@ -59,8 +66,8 @@ function PhraseDrawerContent({ dialogID, nodeID }) {
           <div>
             <label>ID</label>
             <Input
-              value={buffer.data.phrase_id}
-              onChange={(e) => setBuffer({...buffer, data: {...buffer.data, phrase_id: e.target.value}})}
+              value={buffer.phraseId}
+              onChange={(e) => setBuffer({...buffer, phraseId: e.target.value})}
               onBlur={checkDiff}
             />
           </div>
@@ -68,8 +75,8 @@ function PhraseDrawerContent({ dialogID, nodeID }) {
             <label>Текст</label>
             <Input.TextArea
               rows={4}
-              value={buffer.data.phrase_text}
-              onChange={(e) => setBuffer({...buffer, data: {...buffer.data, phrase_text: e.target.value}})}
+              value={buffer.phraseText}
+              onChange={(e) => setBuffer({...buffer, phraseText: e.target.value})}
               onBlur={checkDiff}
             />
           </div>
@@ -80,11 +87,11 @@ function PhraseDrawerContent({ dialogID, nodeID }) {
               allowClear
               style={{ width: '100%' }}
               placeholder="Выбрать..."
-              value={edges.flatMap(e => (e.source === phraseNode.id) ? [e.target] : [])}
+              value={nextPhrasesValues}
               onSelect={onPhraseNextSelect}
               onDeselect={onPhraseNextDeselect}
               onClear={onPhraseNextClear}
-              options={nodes?.flatMap(node => (nodeID !== node.id) ? [{ label: node.data.phrase_id, value: node.id }] : [])}
+              options={nextPhrasesOptions}
             />
           </div>
         </Space>

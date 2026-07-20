@@ -14,7 +14,6 @@ const { Title, Text } = Typography;
 function App() {
   const [loading, setLoading] = useState(false);
   const loadPhraseSample = useSampleStore(state => state.loadPhraseSample);
-  const loadEdgeSample = useSampleStore(state => state.loadEdgeSample);
   const {
     gameDialogs, setGameDialogs,
     selectedDialogID, setSelectedDialogID
@@ -27,11 +26,10 @@ function App() {
     }))
   );
 
-  // Загрузка шаблонов при старте страницы.
+  // Загрузка шаблона фразы при старте страницы.
   useEffect(() => {
     loadPhraseSample();
-    loadEdgeSample();
-  }, [loadPhraseSample, loadEdgeSample]);
+  }, [loadPhraseSample]);
 
   const handleUpload = async ({ file, onSuccess, onError }) => {
     setLoading(true);
@@ -81,11 +79,11 @@ function App() {
   // Превращаем JSON-ответ от FastAPI в массив данных для таблицы
   const tableData = gameDialogs ? [
     { key: '1', property: 'Имя файла конфигурации', value: <Text strong>{gameDialogs.filename}</Text> },
-    { key: '2', property: 'Кол-во диалогов', value: <Tag color="blue">{gameDialogs.dialogs.length}</Tag> },
+    { key: '2', property: 'Кол-во диалогов', value: <Tag color="blue">{Object.keys(gameDialogs.dialogs).length}</Tag> },
   ] : [];
 
   const selectDialogList = gameDialogs?.dialogs
-    ? gameDialogs.dialogs.map(dlg => ({ value: dlg.id, label: dlg.id }))
+    ? Object.keys(gameDialogs.dialogs).map(dlgId => ({ value: dlgId, label: dlgId }))
     : [];
 
   const onDialogSelect = (value) => {
@@ -140,7 +138,7 @@ function App() {
             />
             <ReactFlowProvider>
               <DialogCanvas
-                dialog={gameDialogs.dialogs?.find(dlg => dlg.id === selectedDialogID)}
+                dialog={gameDialogs.dialogs?.[selectedDialogID]}
               />
             </ReactFlowProvider>
           </>
