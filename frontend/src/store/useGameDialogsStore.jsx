@@ -3,6 +3,7 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { message } from 'antd';
 
+import { genEdgeId, getReactFlowEdge } from '@/utils/rfUtils';
 import useSampleStore from '@/store/useSampleStore';
 
 let duplicatePhraseIDsCache = {};
@@ -39,6 +40,13 @@ const useGameDialogsStore = create(
         return get().gameDialogs?.dialogs?.[dialogID]?.edges;
       },
 
+      findEdgeId: (dialogID, sourceNodeId, targetNodeId) => {
+        const dlgEdges = get().getEdges(dialogID);
+        return Object.keys(dlgEdges || {}).find(edgeId =>
+          (dlgEdges[edgeId].source === sourceNodeId) && (dlgEdges[edgeId].target === targetNodeId)
+        );
+      },
+
       getReactFlowNodes: (dialogID) => {
         return Object.keys(get().getNodes(dialogID) || {}).map(nodeId => {
           const node = get().getNode(dialogID, nodeId);
@@ -55,19 +63,12 @@ const useGameDialogsStore = create(
       getReactFlowEdges: (dialogID) => {
         return Object.keys(get().getEdges(dialogID) || {}).map(edgeId => {
           const edge = get().getEdge(dialogID, edgeId);
-          return {
-            id: edgeId,
-            type: 'straight',
-            source: edge?.source,
-            target: edge?.target,
-            animated: false,
-            markerEnd: {
-                type: 'arrow',
-                // color: '#1890ff',
-                width: 20,
-                height: 20,
-            },
-          };
+          const rfEdge = getReactFlowEdge(edge?.source, edge?.target);
+          if (edge.id !== rfEdge.id) {
+            console.error(`Unexpected edge ID (expected "${rfEdge.id}", got "${edge.id}")`);
+            rfEdge.id = edge.id;
+          }
+          return rfEdge;
         });
       },
 
@@ -124,15 +125,16 @@ const useGameDialogsStore = create(
       },
 
       addPhraseConnection: (dialogID, sourceID, targetID) => {
-        if (!!sourceID && !!targetID) {
+        if (!!sourceID && !!targetID && (sourceID !== targetID)) {
           set(state => {
             const dlgEdges = state.gameDialogs?.dialogs?.[dialogID]?.edges;
             if (dlgEdges) {
+              const nodesExist = !!state.getNode(dialogID, sourceID) && !!state.getNode(dialogID, targetID);
               const connectionExists = Object.keys(dlgEdges).some(
                 edgeId => (dlgEdges[edgeId].source === sourceID) && (dlgEdges[edgeId].target === targetID)
               );
-              if (!connectionExists) {
-                const newEdgeId = `e_${sourceID}_${targetID}`;
+              if (nodesExist && !connectionExists) {
+                const newEdgeId = genEdgeId(sourceID, targetID);
                 dlgEdges[newEdgeId] = {
                   id: newEdgeId,
                   source: sourceID,
@@ -148,12 +150,9 @@ const useGameDialogsStore = create(
         if (!!dialogID && !!sourceID && !!targetID) {
           set(state => {
             const dlgEdges = state.gameDialogs?.dialogs?.[dialogID]?.edges;
-            if (dlgEdges) {
-              Object.keys(dlgEdges).forEach(edgeId => {
-                if ((dlgEdges[edgeId].source === sourceID) && (dlgEdges[edgeId].target === targetID)) {
-                  delete dlgEdges[edgeId];
-                }
-              });
+            const edgeId = state.findEdgeId(dialogID, sourceID, targetID);
+            if (!!dlgEdges && !!edgeId) {
+              delete dlgEdges[edgeId];
             }
           });
         }

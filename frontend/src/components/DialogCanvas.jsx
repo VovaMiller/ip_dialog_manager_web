@@ -5,6 +5,7 @@ import { DeleteOutlined, DotChartOutlined, PlusOutlined } from '@ant-design/icon
 import { ReactFlow, Controls, Background, useReactFlow } from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
 
+import { getReactFlowEdge } from '@/utils/rfUtils';
 import useGameDialogsStore from '@/store/useGameDialogsStore';
 import PhraseNode from '@/components/PhraseNode';
 import PhraseDrawerContent from '@/components/PhraseDrawerContent';
@@ -15,10 +16,7 @@ const nodeTypes = {
   phraseNode: PhraseNode,
 };
 
-function DialogCanvas({
-  dialog,
-}) {
-  const [dialogID, setDialogID] = useState(null);
+function DialogCanvas({ dialogId }) {
   const rfInstance = useReactFlow();
 
   const { selectedNodeID, setSelectedNodeID } = useGameDialogsStore(
@@ -29,6 +27,7 @@ function DialogCanvas({
   );
   const {
     getNode,
+    findEdgeId,
     getReactFlowNodes,
     getReactFlowEdges,
     updatePhrasesPositions,
@@ -62,55 +61,42 @@ function DialogCanvas({
 
   // Сохранить позиции всех перечисленных вершин.
   const savePositions = (dNodes) => {
-    if (dialog) {
+    if (dialogId) {
       const newPositionsMap = new Map();
       dNodes.forEach(node => newPositionsMap.set(node.id, node.position));
-      updatePhrasesPositions(dialog.id, newPositionsMap);
+      updatePhrasesPositions(dialogId, newPositionsMap);
     }
   };
 
-  // Обновление холста при смене данных о диалоге (в т.ч. при выборе нового).
+  // Обновление холста при смене выбранного диалога.
   useEffect(() => {
     if (!rfInstance) return;
-    if (dialog) {
-      const isNewDialog = (dialog.id !== dialogID);
-
+    if (dialogId) {
       // При смене диалога сбрасываем выбранную фразу.
-      if (isNewDialog) {
-        setDialogID(dialog.id);
-        setSelectedNodeID(null);
-      }
+      setSelectedNodeID(null);
 
       // Обновление графа.
-      const nodes = getReactFlowNodes(dialog.id);
-      const edges = getReactFlowEdges(dialog.id);
-      if (isNewDialog) {
-        const noPositionData = nodes.every(n => (n.position.x == 0) && (n.position.y == 0));
-        if (noPositionData) {
-          const nodesLayouted = getLayoutedNodes(nodes, edges);
-          rfInstance.setNodes(nodesLayouted);
-          rfInstance.setEdges(edges);
-          savePositions(nodesLayouted);
-        } else {
-          rfInstance.setNodes(nodes);
-          rfInstance.setEdges(edges);
-        }
+      const nodes = getReactFlowNodes(dialogId);
+      const edges = getReactFlowEdges(dialogId);
+      const hasNoPositionData = nodes.every(n => (n.position.x == 0) && (n.position.y == 0));
+      if (hasNoPositionData) {
+        const nodesLayouted = getLayoutedNodes(nodes, edges);
+        rfInstance.setNodes(nodesLayouted);
+        rfInstance.setEdges(edges);
+        savePositions(nodesLayouted);
       } else {
         rfInstance.setNodes(nodes);
         rfInstance.setEdges(edges);
       }
 
       // Центрирование.
-      if (isNewDialog) {
-        rfInstance.fitView();
-      }
+      rfInstance.fitView();
     } else {
-      setDialogID(null);
       rfInstance.setNodes([]);
       rfInstance.setEdges([]);
       setSelectedNodeID(null);
     }
-  }, [dialog]);
+  }, [dialogId]);
 
   const onNodeClick = (event, node) => {
     setSelectedNodeID(node?.id);
@@ -130,18 +116,20 @@ function DialogCanvas({
     savePositions(draggedNodes);
   };
 
-  // Колбэк удаления вершин/рёбер через интерфейс ReactFlow.
+  // Колбэк удаления вершин/рёбер
+  // Срабатывает при удалении через интерфейс ReactFlow,
+  //  а также при кастомных действиях из Drawer (из-за вызова deleteElements).
   const onDelete = ({ nodes: delNodes, edges: delEdges }) => {
-    if (dialog) {
+    if (dialogId) {
       // Удаление связей
       const edgesIDSet = new Set();
       delEdges.forEach(e => edgesIDSet.add(e.id));
-      deletePhrasesConnections(dialog.id, edgesIDSet);
+      deletePhrasesConnections(dialogId, edgesIDSet);
 
       // Удаление фраз
       const nodesIDSet = new Set();
       delNodes.forEach(n => nodesIDSet.add(n.id));
-      deletePhrases(dialog.id, nodesIDSet);
+      deletePhrases(dialogId, nodesIDSet);
       if (!!selectedNodeID && nodesIDSet.has(selectedNodeID)) {
         setSelectedNodeID(null);
       }
@@ -150,19 +138,43 @@ function DialogCanvas({
 
   // Колбэк создания связи между вершинами через интерфейс ReactFlow.
   const onConnect = ({ source, target }) => {
-    if (dialogID) {
-      addPhraseConnection(dialogID, source, target);
+    if (!rfInstance) return;
+    if (dialogId) {
+      const edgeExists = !!findEdgeId(dialogId, source, target);
+      if (!edgeExists) {
+        // Если ребра ещё не было, то React Flow уже автоматически добавил в rfInstance новое ребро.
+        const autoEdgeId = rfInstance.getEdges().find(e => (e.source === source) && (e.target === target))?.id;
+        if (autoEdgeId) {
+          if (source !== target) {
+            rfInstance.updateEdge(autoEdgeId, getReactFlowEdge(source, target));
+            addPhraseConnection(dialogId, source, target);
+          } else {
+            // Петли запрещены.
+            rfInstance.deleteElements({ edges: [{ id: autoEdgeId }] });
+          }
+        } else {
+          console.error("onConnect: новое ребро не было найдено в rfInstance");
+        }
+      }
     }
   };
 
   // Колбэк обновления связи между вершинами через интерфейс ReactFlow.
   const onReconnect = (oldEdge, newConnection) => {
-    if (dialogID) {
+    if (!rfInstance) return;
+    if (dialogId) {
       const { source: oldSource, target: oldTarget } = oldEdge;
       const { source: newSource, target: newTarget } = newConnection;
       if ((oldSource !== newSource) || (oldTarget !== newTarget)) {
-        delPhraseConnection(dialogID, oldSource, oldTarget);
-        addPhraseConnection(dialogID, newSource, newTarget);
+        const newConnectionExists = !!findEdgeId(dialogId, newSource, newTarget);
+        if (!newConnectionExists && (newSource !== newTarget)) {
+          rfInstance.updateEdge(oldEdge.id, getReactFlowEdge(newSource, newTarget));
+          delPhraseConnection(dialogId, oldSource, oldTarget);
+          addPhraseConnection(dialogId, newSource, newTarget);
+        } else {
+          rfInstance.deleteElements({ edges: [{ id: oldEdge.id }] });
+          // Ребро из основного хранилища удалится через колбэк onDelete.
+        }
       }
     }
   };
@@ -172,21 +184,22 @@ function DialogCanvas({
   };
 
   const onDeleteButtonClick = () => {
-    if (!!dialogID && !!selectedNodeID) {
-      const nodesIDSet = new Set([selectedNodeID]);
-      deletePhrases(dialogID, nodesIDSet);
+    if (!rfInstance) return;
+    if (!!dialogId && !!selectedNodeID) {
+      rfInstance.deleteElements({ nodes: [{ id: selectedNodeID }] });
+      // Вершина из основного хранилища удалится через колбэк onDelete.
       setSelectedNodeID(null);
     }
   };
 
   const onAddButtonClick = () => {
     if (!rfInstance) return;
-    if (dialogID) {
+    if (dialogId) {
       // Вычисление позиции.
       let position;
       if (selectedNodeID) {
         // Если есть выбранная фраза, то размещаем новую фразу чуть ниже.
-        const selectedNode = getNode(dialogID, selectedNodeID);
+        const selectedNode = getNode(dialogId, selectedNodeID);
         position = {
           x: selectedNode?.posX || 0,
           y: (selectedNode?.posY || 0) + 48,
@@ -204,7 +217,17 @@ function DialogCanvas({
       }
 
       // Создание фразы.
-      const newPhraseID = createPhrase(dialogID, position);
+      const newPhraseID = createPhrase(dialogId, position);
+      if (newPhraseID) {
+        rfInstance.addNodes({
+            id: newPhraseID,
+            position: {
+                x: position?.x || 0,
+                y: position?.y || 0,
+            },
+            type: 'phraseNode',
+        });
+      }
 
       // Переключение на новую фразу.
       setSelectedNodeID(newPhraseID);
@@ -212,7 +235,7 @@ function DialogCanvas({
   };
 
   const onUpdPositionsClick = () => {
-    if (!rfInstance || !dialogID) return;
+    if (!rfInstance || !dialogId) return;
     const nodesLayouted = getLayoutedNodes(rfInstance.getNodes(), rfInstance.getEdges());
     rfInstance.setNodes(nodesLayouted);
     savePositions(nodesLayouted);
@@ -222,7 +245,7 @@ function DialogCanvas({
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', height: '90vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
-        {dialogID && (
+        {dialogId && (
           <>
             <div style={{ flexGrow: 1, border: '1px solid #d9d9d9', borderRadius: '8px', backgroundColor: '#fff', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
               <ReactFlow
@@ -298,7 +321,8 @@ function DialogCanvas({
       >
         {!!rfInstance && !!selectedNodeID && (
           <PhraseDrawerContent
-            dialogID={dialogID}
+            rfInstance={rfInstance}
+            dialogID={dialogId}
             nodeID={selectedNodeID}
           />
         )}

@@ -138,7 +138,7 @@ function App() {
             />
             <ReactFlowProvider>
               <DialogCanvas
-                dialog={gameDialogs.dialogs?.[selectedDialogID]}
+                dialogId={selectedDialogID}
               />
             </ReactFlowProvider>
           </>
