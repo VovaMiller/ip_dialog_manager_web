@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { Button, Space, Drawer, Popconfirm } from 'antd';
-import { DeleteOutlined, DotChartOutlined, PlusOutlined } from '@ant-design/icons';
-import { ReactFlow, Controls, Background, useReactFlow } from '@xyflow/react';
+import { AimOutlined, DeleteOutlined, DotChartOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { ReactFlow, Controls, ControlButton, Background, useReactFlow } from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
 
 import { getReactFlowEdge } from '@/utils/rfUtils';
@@ -242,6 +242,21 @@ function DialogCanvas({ dialogId }) {
     rfInstance.fitView();
   };
 
+  const reloadGraph = () => {
+    if (!rfInstance || !dialogId) return;
+    setSelectedNodeID(null);
+    rfInstance.setNodes(getReactFlowNodes(dialogId));
+    rfInstance.setEdges(getReactFlowEdges(dialogId));
+  };
+
+  const focusSelectedNode = () => {
+    if (!rfInstance || !selectedNodeID) return;
+    rfInstance.fitView({
+      nodes: [{ id: selectedNodeID }],
+      duration: 600,
+    });
+  };
+
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', height: '90vh', backgroundColor: '#f0f2f5', padding: '20px' }}>
@@ -267,8 +282,22 @@ function DialogCanvas({ dialogId }) {
               >
                 {/* Сетка на заднем фоне холста */}
                 <Background color="#ccc" gap={16} size={1} />
-                {/* Кнопки зума (+ / -) в левом углу */}
-                <Controls />
+
+                {/* Кнопки управления холстом в нижнем левом углу */}
+                <Controls>
+                  <ControlButton
+                    onClick={reloadGraph}
+                    title="Перезагрузить граф"
+                  >
+                    <ReloadOutlined style={{ fontSize: '14px', color: '#555' }} />
+                  </ControlButton>
+                  <ControlButton
+                    onClick={focusSelectedNode}
+                    title="Фокус на выбранной фразе"
+                  >
+                    <AimOutlined style={{ fontSize: '14px', color: '#555' }} />
+                  </ControlButton>
+                </Controls>
               </ReactFlow>
             </div>
 
