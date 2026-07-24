@@ -4,6 +4,7 @@ import fastDeepEqual from 'fast-deep-equal';
 
 import { getReactFlowEdge } from '@/utils/rfUtils';
 import useGameDialogsStore from '@/store/useGameDialogsStore';
+import PhraseTagSelect from '@/components/PhraseTagSelect';
 
 function PhraseDrawerContent({ rfInstance, dialogID, nodeID }) {
   const [buffer, setBuffer] = useState(null);
@@ -66,6 +67,15 @@ function PhraseDrawerContent({ rfInstance, dialogID, nodeID }) {
     }
   };
 
+  const onChangeListProp = (prop, values) => {
+    if (!!dialogID && !!buffer) {
+      const updBuffer = {...buffer};
+      updBuffer[prop] = values;
+      setBuffer(updBuffer);
+      updatePhrase(dialogID, updBuffer);
+    }
+  };
+
   const nextPhrasesValues = Object.keys(edges || {}).flatMap(
     edgeId => (edges[edgeId].source === phraseNode?.id) ? [edges[edgeId].target] : []
   );
@@ -106,6 +116,46 @@ function PhraseDrawerContent({ rfInstance, dialogID, nodeID }) {
               onDeselect={onPhraseNextDeselect}
               onClear={onPhraseNextClear}
               options={nextPhrasesOptions}
+            />
+          </div>
+          <div>
+            <label>{"<has_info>"}</label>
+            <PhraseTagSelect
+              tagColor="#237804"  // green-7
+              value={buffer.phraseHasInfo || []}
+              onChange={values => onChangeListProp('phraseHasInfo', values)}
+            />
+          </div>
+          <div>
+            <label>{"<dont_has_info>"}</label>
+            <PhraseTagSelect
+              tagColor="#a8071a"  // red-7
+              value={buffer.phraseDontHasInfo || []}
+              onChange={values => onChangeListProp('phraseDontHasInfo', values)}
+            />
+          </div>
+          <div>
+            <label>{"<precondition>"}</label>
+            <PhraseTagSelect
+              tagColor="#ad8b00"  // yellow-7
+              value={buffer.phrasePrecondition || []}
+              onChange={values => onChangeListProp('phrasePrecondition', values)}
+            />
+          </div>
+          <div>
+            <label>{"<give_info>"}</label>
+            <PhraseTagSelect
+              tagColor="#10239e"  // geekblue-7
+              value={buffer.phraseGiveInfo || []}
+              onChange={values => onChangeListProp('phraseGiveInfo', values)}
+            />
+          </div>
+          <div>
+            <label>{"<action>"}</label>
+            <PhraseTagSelect
+              tagColor="#003eb3"  // blue-7
+              value={buffer.phraseAction || []}
+              onChange={values => onChangeListProp('phraseAction', values)}
             />
           </div>
         </Space>
