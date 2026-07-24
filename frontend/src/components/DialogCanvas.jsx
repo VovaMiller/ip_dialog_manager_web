@@ -98,10 +98,6 @@ function DialogCanvas({ dialogId }) {
     }
   }, [dialogId]);
 
-  const onNodeClick = (event, node) => {
-    setSelectedNodeID(node?.id);
-  };
-
   const onNodeDragStart = (event, draggedNode, draggedNodes) => {
     if (selectedNodeID) {
       if (draggedNodes.length === 1) {
@@ -114,6 +110,13 @@ function DialogCanvas({ dialogId }) {
 
   const onNodeDragStop = (event, draggedNode, draggedNodes) => {
     savePositions(draggedNodes);
+  };
+
+  const onNodeClick = (event, node) => {
+    // Поскольку nodeDragThreshold установлен на 0,
+    //  то при обычном клике перед этим также
+    //  всегда вызывается onNodeDragStart и onNodeDragStop.
+    setSelectedNodeID(node?.id);
   };
 
   // Колбэк удаления вершин/рёбер
@@ -266,9 +269,9 @@ function DialogCanvas({ dialogId }) {
               <ReactFlow
                 defaultNodes={[]}
                 defaultEdges={[]}
-                onNodeClick={onNodeClick}
                 onNodeDragStart={onNodeDragStart}
                 onNodeDragStop={onNodeDragStop}
+                onNodeClick={onNodeClick}
                 onDelete={onDelete}
                 onConnect={onConnect}
                 onReconnect={onReconnect}
@@ -278,7 +281,14 @@ function DialogCanvas({ dialogId }) {
                 nodeTypes={nodeTypes}
                 connectionLineType="straight"
                 deleteKeyCode={['Delete', 'Backspace']}
-                fitView // Автоматически центрирует камеру по графу при загрузке
+
+                // Это исправляет баг, когда нажатие на фразу могло не зафиксироваться.
+                // Минусы: из-за этого при любом нажатии также вызывается onNodeDragStop,
+                //  из-за которого каждый раз будут вхолостую сохраняться позиции вершин.
+                nodeDragThreshold={0}
+
+                // Автоматически центрируем камеру по графу при загрузке
+                fitView
               >
                 {/* Сетка на заднем фоне холста */}
                 <Background color="#ccc" gap={16} size={1} />
