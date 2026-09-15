@@ -1,3 +1,6 @@
+# rnd
+/.self
+
 # backend: rnd
 venv/
 .env
